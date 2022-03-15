@@ -1,0 +1,7 @@
+telegram:
+  api_key: "API_KEY" # API key for your Telegram bot
+  chat_id: 123456789 # Your Telegram chat ID (including any "-" sign)
+binance:
+  api_key: "API_KEY" # Binance API key
+  secret_key: "SECRET_KEY" # Binance secret key
+  order_id_regex: "^.*_deal_.*$" # Pattern to identify a 3Commas client_order_id in Binance
