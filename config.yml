@@ -4,4 +4,6 @@ telegram:
 binance:
   api_key: "API_KEY" # Binance API key
   secret_key: "SECRET_KEY" # Binance secret key
+dca_bot:
   order_id_regex: "^.*_deal_.*$" # Pattern to identify a 3Commas client_order_id in Binance
+  dca_volume_scale: 1.05 # Safety Order Volume Scale in 3Commas. Used to predetermine how much quote asset will be required for future orders. Should be set to highest value used across all your 3Commas bots

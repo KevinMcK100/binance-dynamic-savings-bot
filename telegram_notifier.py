@@ -12,6 +12,4 @@ class TelegramNotifier:
         if self.context is None or self.chat_id is None:
             print(f"Telegram bot not yet started. Couldn't send message: {message}")
         else:
-            self.context.bot.send_message(
-                chat_id=self.chat_id, text=message, parse_mode="HTML"
-            )
+            self.context.bot.send_message(chat_id=self.chat_id, text=message, parse_mode="HTML")

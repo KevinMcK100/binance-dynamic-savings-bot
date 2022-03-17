@@ -1,6 +1,9 @@
+import threading
+from typing import final
 from telegram.ext import Updater, CommandHandler
 from telegram_notifier import TelegramNotifier
 from savings_evaluation import SavingsEvaluation
+from time import sleep
 
 
 class TelegramHandler:
@@ -17,12 +20,17 @@ class TelegramHandler:
 
     def start_telegram_bot(self, api_key):
         # """Initialise Telegram bot."""
-        self.updater = Updater(api_key, use_context=True)
+        self.updater = Updater(
+            api_key,
+            use_context=True,
+            request_kwargs={"connect_timeout": 10, "read_timeout": 20},
+        )
 
         # Add command handlers
         dp = self.updater.dispatcher
         dp.add_handler(CommandHandler("start", self.__start))  # /start
         dp.add_handler(CommandHandler("reevaluate", self.__reevaluate))  # /reevaluate
+        dp.add_handler(CommandHandler("fail", self.__fail))  # /fail
 
         # Start the Telegram Bot
         self.updater.start_polling()
@@ -37,15 +45,11 @@ class TelegramHandler:
         """Starts the bot. Executes on /start command"""
         if not self.bot_started:
             self.telegram_notifier.initialise_notifier(context)
-            self.telegram_notifier.send_message(
-                "Starting Binance Dynamic Savings Bot..."
-            )
-            self.savings_evaluation.reevaluate_all_symbols()
+            self.telegram_notifier.send_message("Starting Binance Dynamic Savings Bot...")
+            # self.savings_evaluation.reevaluate_all_symbols()
             self.bot_started = True
         else:
-            self.telegram_notifier.send_message(
-                "Bot is already started. Execute /help for more commands"
-            )
+            self.telegram_notifier.send_message("Bot is already started. Execute /help for more commands")
 
     def __reevaluate(self, update, context):
         """Reevaluates all assets and redistributes quote assets between Flexible Savings and Spot Wallet. Executes on /reevaluate command"""
@@ -54,3 +58,7 @@ class TelegramHandler:
             self.savings_evaluation.reevaluate_all_symbols()
         else:
             print("Bot is not started. Execute /start command from Telegram")
+
+    def __fail(self, update, context):
+        print("Faking failure")
+        self.savings_evaluation.rebalance_failures = {"USDT", "BTC"}

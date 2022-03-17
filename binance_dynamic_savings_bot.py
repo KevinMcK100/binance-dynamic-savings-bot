@@ -7,8 +7,10 @@ Usage:
 Start bot using /start. This triggers a reevaluation of current savings and starts the Telegram bot and order websocket listener.
 """
 
+import threading
 import yaml
 from binance_client import BinanceClient
+from failure_handler import FailureHandler
 from telegram_handler import TelegramHandler
 from telegram_notifier import TelegramNotifier
 from order_processor import OrderProcessor
@@ -22,10 +24,11 @@ def load_conf_file(config_file):
         config = yaml.safe_load(f)
         telegram_config = config["telegram"]
         binance_config = config["binance"]
-    return telegram_config, binance_config
+        dca_bot_config = config["dca_bot"]
+    return telegram_config, binance_config, dca_bot_config
 
 
-telegram_config, binance_config = load_conf_file(".config.yml")
+telegram_config, binance_config, dca_bot_config = load_conf_file(".config.yml")
 
 
 def is_open_so_set(current_deal_orders):
@@ -92,11 +95,7 @@ def on_take_profit(client, symbol, con):
 
 
 def get_active_3c_symbols(client):
-    return {
-        ord["symbol"]
-        for ord in client.get_open_orders()
-        if "deal" in ord["clientOrderId"]
-    }
+    return {ord["symbol"] for ord in client.get_open_orders() if "deal" in ord["clientOrderId"]}
 
 
 def is_3commas_order(order_id):
@@ -106,25 +105,18 @@ def is_3commas_order(order_id):
 def main():
     telegram_notifier = TelegramNotifier(telegram_config["chat_id"])
 
-    binance_client = BinanceClient(
-        binance_config["api_key"], binance_config["secret_key"]
-    )
+    binance_client = BinanceClient(binance_config["api_key"], binance_config["secret_key"])
     savings_evaluation = SavingsEvaluation(
-        binance_config["order_id_regex"], binance_client, telegram_notifier
+        dca_bot_config["order_id_regex"], binance_client, telegram_notifier, dca_bot_config["dca_volume_scale"]
     )
-    telegram_handler = TelegramHandler(
-        telegram_config["api_key"], telegram_notifier, savings_evaluation
-    )
+    failure_handler = FailureHandler(binance_client, savings_evaluation, telegram_notifier)
+    failure_handler.start()
+    telegram_handler = TelegramHandler(telegram_config["api_key"], telegram_notifier, savings_evaluation)
 
     order_processor = OrderProcessor(
-        binance_config["order_id_regex"],
-        binance_client,
-        savings_evaluation,
-        telegram_notifier,
+        dca_bot_config["order_id_regex"], binance_client, savings_evaluation, telegram_notifier
     )
-    order_stream_reader = OrderStreamReader(
-        binance_config["api_key"], binance_config["secret_key"], order_processor
-    )
+    order_stream_reader = OrderStreamReader(binance_config["api_key"], binance_config["secret_key"], order_processor)
     order_stream_reader.start_order_stream()
 
     # Blocking call. Signals only work in main thread so this must final call from main
