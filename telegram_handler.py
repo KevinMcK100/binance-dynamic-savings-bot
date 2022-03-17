@@ -13,6 +13,7 @@ class TelegramHandler:
         self.telegram_notifier = telegram_notifier
         self.savings_evaluation = savings_evaluation
         self.start_telegram_bot(api_key)
+        self.bot_started = False
 
     def start_telegram_bot(self, api_key):
         # """Initialise Telegram bot."""
@@ -21,6 +22,7 @@ class TelegramHandler:
         # Add command handlers
         dp = self.updater.dispatcher
         dp.add_handler(CommandHandler("start", self.__start))  # /start
+        dp.add_handler(CommandHandler("reevaluate", self.__reevaluate))  # /reevaluate
 
         # Start the Telegram Bot
         self.updater.start_polling()
@@ -33,6 +35,22 @@ class TelegramHandler:
 
     def __start(self, update, context):
         """Starts the bot. Executes on /start command"""
-        self.telegram_notifier.initialise_notifier(context)
-        self.telegram_notifier.send_message("Starting Binance Dynamic Savings Bot...")
-        self.savings_evaluation.reevaluate_all_symbols()
+        if not self.bot_started:
+            self.telegram_notifier.initialise_notifier(context)
+            self.telegram_notifier.send_message(
+                "Starting Binance Dynamic Savings Bot..."
+            )
+            self.savings_evaluation.reevaluate_all_symbols()
+            self.bot_started = True
+        else:
+            self.telegram_notifier.send_message(
+                "Bot is already started. Execute /help for more commands"
+            )
+
+    def __reevaluate(self, update, context):
+        """Reevaluates all assets and redistributes quote assets between Flexible Savings and Spot Wallet. Executes on /reevaluate command"""
+        if self.bot_started:
+            self.telegram_notifier.send_message("Reevaluating quote assets...")
+            self.savings_evaluation.reevaluate_all_symbols()
+        else:
+            print("Bot is not started. Execute /start command from Telegram")

@@ -36,7 +36,7 @@ class OrderStreamReader:
     def monitor_order_stream(self, binance_websocket_api_manager):
         while True:
             binance_websocket_api_manager.print_summary()
-            time.sleep(5)
+            time.sleep(60)
 
     def start_order_stream(self):
         ubwa = BinanceWebSocketApiManager(
