@@ -55,7 +55,7 @@ class TelegramHandler:
         """Reevaluates all assets and redistributes quote assets between Flexible Savings and Spot Wallet. Executes on /reevaluate command"""
         if self.bot_started:
             self.telegram_notifier.send_message("Reevaluating quote assets...")
-            self.savings_evaluation.reevaluate_all_symbols()
+            self.savings_evaluation.reevaluate_symbol("LUNAUSDT")
         else:
             print("Bot is not started. Execute /start command from Telegram")
 

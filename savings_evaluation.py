@@ -55,8 +55,8 @@ class SavingsEvaluation:
             self.rebalance_mutex.release()
 
     def __reevaluate_symbol(self, symbol):
-        self.telegram_notifier.send_message("Reevaluating savings for {symbol}...")
-        quote_asset = self.__get_quote_assets([symbol])
+        self.telegram_notifier.send_message(f"Reevaluating savings for {symbol}...")
+        quote_asset = list(self.__get_quote_assets([symbol]))[0]
         quote_precision = int(self.binance_client.get_quote_precision(symbol))
         next_order_cost = self.__calculate_next_order_value(symbol)
         # We do not queue for retry here because we expect a subsequent order event to be triggered once Safety Order has been placed by DCA bot
@@ -170,7 +170,7 @@ class SavingsEvaluation:
             return
 
         # Check if we can subscribe to the asset, if not, add it as a failure for retrying later
-        if not self.binance_client.can_purchase_savings_asset:
+        if not self.binance_client.can_purchase_savings_asset(asset):
             msg = f"{asset} is currently unavailable to purchase in Flexible Savings. Will retry when it becomes available"
             print(msg)
             self.telegram_notifier.send_message(msg)
@@ -179,8 +179,10 @@ class SavingsEvaluation:
 
         # Execute subscription to Flexible Savings
         try:
-            print(f"Moved {quantity} {asset} from Spot Wallet to Flexible Savings")
-            self.telegram_notifier.send_message(f"Moved {quantity} {asset} from Spot Wallet to Flexible Savings")
+            # self.binance_client.subscribe_to_savings(asset, quantity)
+            msg = f"Moved {quantity} {asset} from Spot Wallet to Flexible Savings"
+            print(msg)
+            self.telegram_notifier.send_message(msg)
             self.__rebalanced_amounts_notifications(asset)
         except Exception as err:
             logging.exception(f"Exception occurred when attempting to rebalance savings for {asset}: {err}")
@@ -205,7 +207,7 @@ class SavingsEvaluation:
             quantity = savings_amount
 
         # Check if we can redeem from the asset, if not, add it as a failure for retrying later
-        if not self.binance_client.can_purchase_savings_asset:
+        if not self.binance_client.can_redeem_savings_asset(asset):
             msg = f"{asset} is currently unavailable to redeem from Flexible Savings. Will retry when it becomes available"
             print(msg)
             self.telegram_notifier.send_message(msg)
@@ -214,6 +216,7 @@ class SavingsEvaluation:
 
         # Execute redemption from Flexible Savings
         try:
+            # self.binance_client.redeem_from_savings(asset, quantity)
             msg = f"Moved {quantity} {asset} to Spot Wallet from Flexible Savings"
             print(msg)
             self.telegram_notifier.send_message(msg)
@@ -229,7 +232,8 @@ class SavingsEvaluation:
     def __rebalanced_amounts_notifications(self, asset):
         available_spot = self.binance_client.get_available_asset_balance(asset)
         total_spot = self.binance_client.get_total_asset_balance(asset)
-        savings_amount = self.binance_client.get_available_savings_by_asset(asset)
-        msg = f"{asset} savings rebalanced.\n\nSpot Wallet Available: {available_spot} {asset}\nSpot Wallet Total: {total_spot} {asset}\nFlexible Savings: {savings_amount} {asset}"
+        available_savings = self.binance_client.get_available_savings_by_asset(asset)
+        accruing_interest = self.binance_client.get_accruing_interest_savings_by_asset(asset)
+        msg = f"{asset} savings rebalanced.\n\nSpot Wallet Available: {available_spot} {asset}\nSpot Wallet Total: {total_spot} {asset}\n\nAvailable Savings: {available_savings} {asset}\nAccruing Interest: {accruing_interest} {asset}"
         print(msg)
         self.telegram_notifier.send_message(msg)

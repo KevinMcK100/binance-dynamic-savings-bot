@@ -122,18 +122,6 @@ def main():
     # Blocking call. Signals only work in main thread so this must final call from main
     telegram_handler.run_telegram_bot()
 
-    # history = client.get_lending_interest_history(
-    #     lendingType="DAILY",
-    #     asset="USDT",
-    #     startTime=1646524800000,
-    #     endTime=1646539200000,
-    # )
-    # redeem = client.get_lending_redemption_history(lendingType="DAILY", asset="USDT")
-    # purchase = client.get_lending_position(asset="USDT")
-    # print(history)
-    # print(redeem)
-    # print(purchase)
-
 
 if __name__ == "__main__":
     main()

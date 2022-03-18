@@ -63,21 +63,32 @@ class BinanceClient:
     #                          Flexible Savings Endpoints                          #
     # ---------------------------------------------------------------------------- #
 
-    # ------------------------- Savings position details ------------------------- #
+    # ------------------------ Savings position endpoints ------------------------ #
 
     def get_available_savings_by_asset(self, asset) -> float:
         return float(self.__get_savings_position_by_asset(asset)["freeAmount"])
 
+    def get_accruing_interest_savings_by_asset(self, asset) -> float:
+        free_amt = float(self.__get_savings_position_by_asset(asset)["freeAmount"])
+        today_amt = float(self.__get_savings_position_by_asset(asset)["todayPurchasedAmount"])
+        return max(free_amt - today_amt, 0)
+
     def __get_savings_position_by_asset(self, asset):
         return self.client.get_lending_position(asset=asset)[0]
 
-    # -------------------------- Savings product details ------------------------- #
+    # ------------------------- Savings product endpoints ------------------------ #
+
+    @cached(cache=TTLCache(maxsize=100, ttl=24 * 60 * 60))
+    def get_product_id(self, asset) -> bool:
+        return self.__get_savings_product_by_asset(asset)["productId"]
 
     def can_purchase_savings_asset(self, asset) -> bool:
-        return bool(self.__get_savings_product_by_asset(asset)["canPurchase"])
+        savings_product = self.__get_savings_product_by_asset(asset)
+        return bool(savings_product["canPurchase"]) and bool(savings_product["status"] == "PURCHASING")
 
     def can_redeem_savings_asset(self, asset) -> bool:
-        return bool(self.__get_savings_product_by_asset(asset)["canRedeem"])
+        savings_product = self.__get_savings_product_by_asset(asset)
+        return bool(savings_product["canRedeem"]) and bool(savings_product["status"] == "PURCHASING")
 
     @cached(cache=TTLCache(maxsize=100, ttl=24 * 60 * 60))
     def get_savings_min_purchase_amount_by_asset(self, asset) -> float:
@@ -86,3 +97,13 @@ class BinanceClient:
     @cached(cache=TTLCache(maxsize=100, ttl=5))
     def __get_savings_product_by_asset(self, asset):
         return [x for x in self.client.get_lending_product_list() if x["asset"] == asset][0]
+
+    # ----------------------- Savings rebalancing endpoints ---------------------- #
+
+    def subscribe_to_savings(self, asset, quantity):
+        product_id = self.get_product_id(asset)
+        return self.client.purchase_lending_product(productId=product_id, amount=quantity)
+
+    def redeem_from_savings(self, asset, quantity):
+        product_id = self.get_product_id(asset)
+        return self.client.redeem_lending_product(productId=product_id, amount=quantity, type="FAST")
