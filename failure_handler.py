@@ -1,7 +1,8 @@
-import threading, time
 from binance_client import BinanceClient
 from savings_evaluation import SavingsEvaluation
 from telegram_notifier import TelegramNotifier
+from threading import Thread
+from time import sleep
 
 
 class FailureHandler:
@@ -23,6 +24,8 @@ class FailureHandler:
      - Once assets are able to be purchased and redeemed again, the failure handler will clear down the existing failures and attempt to rebalance all savings assets.
     """
 
+    ONE_MINUTE = 60
+
     def __init__(
         self, binance_client: BinanceClient, savings_evaluation: SavingsEvaluation, telegram_notifier: TelegramNotifier
     ):
@@ -31,7 +34,7 @@ class FailureHandler:
         self.telegram_notifier = telegram_notifier
 
     def start(self):
-        failure_worker = threading.Thread(target=self.monitor_failures)
+        failure_worker = Thread(target=self.monitor_failures)
         failure_worker.start()
 
     def monitor_failures(self):
@@ -53,7 +56,7 @@ class FailureHandler:
                     break
             if can_rebalance:
                 print("Clearing failures and attempting to rebalance all symbols")
-                self.telegram_notifier.send_message("Starting retry...")
+                self.telegram_notifier.enqueue_message("Starting retry...")
                 self.savings_evaluation.rebalance_failures = set()
                 self.savings_evaluation.reevaluate_all_symbols()
-            time.sleep(60)
+            sleep(self.ONE_MINUTE)

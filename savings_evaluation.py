@@ -41,7 +41,7 @@ class SavingsEvaluation:
         except Exception as ex:
             msg = f"Unexpected error occurred while rebalancing for {symbol}. Will not retry. See logs for more details. Exception: {ex}"
             print(msg)
-            self.telegram_notifier.send_message(msg)
+            self.telegram_notifier.enqueue_message(msg)
             logging.exception(ex)
         finally:
             self.rebalance_mutex.release()
@@ -56,13 +56,13 @@ class SavingsEvaluation:
         except Exception as ex:
             msg = f"Unexpected error occurred while rebalancing all assets. Will not retry. See logs for more details. Exception: {ex}"
             print(msg)
-            self.telegram_notifier.send_message(msg)
+            self.telegram_notifier.enqueue_message(msg)
             logging.exception(ex)
         finally:
             self.rebalance_mutex.release()
 
     def __reevaluate_symbol(self, symbol):
-        self.telegram_notifier.send_message(f"Reevaluating savings for {symbol}...")
+        self.telegram_notifier.enqueue_message(f"Reevaluating savings for {symbol}...")
         quote_asset = list(self.__get_quote_assets([symbol]))[0]
         quote_precision = int(self.binance_client.get_quote_precision(symbol))
         next_order_cost = self.__calculate_next_order_value(symbol)
@@ -73,11 +73,11 @@ class SavingsEvaluation:
         self.rebalance_savings(quote_asset, quote_precision, quote_balance, next_order_cost)
 
     def __reevaluate_all_symbols(self):
-        self.telegram_notifier.send_message("Reevaluating all Symbols...")
+        self.telegram_notifier.enqueue_message("Reevaluating all Symbols...")
         active_symbols = self.binance_client.get_symbols_by_client_order_id(self.order_id_regex)
-        self.telegram_notifier.send_message("Active currency pairs: \n\n{0}".format("\n".join(active_symbols)))
+        self.telegram_notifier.enqueue_message("Active currency pairs: \n\n{0}".format("\n".join(active_symbols)))
         quote_assets = self.__get_quote_assets(active_symbols)
-        self.telegram_notifier.send_message("Quote assets to rebalance: {0}".format(", ".join(quote_assets)))
+        self.telegram_notifier.enqueue_message("Quote assets to rebalance: {0}".format(", ".join(quote_assets)))
         print(f"Active quote assets: {quote_assets}")
         for quote_asset in quote_assets:
             print(f"Rebalancing all assets paired with {quote_asset} quote asset")
@@ -91,7 +91,7 @@ class SavingsEvaluation:
             except TypeError as err:
                 err_msg = f"Unable to preform rebalancing calculations for {quote_asset} as some base assets don't have Safety Orders in place yet. Queueing for retry."
                 logging.exception(f"{err_msg} Error: {err}")
-                self.telegram_notifier.send_message(err_msg)
+                self.telegram_notifier.enqueue_message(err_msg)
                 self.rebalance_failures.add(quote_asset)
                 return
 
@@ -152,15 +152,19 @@ class SavingsEvaluation:
         rebalance_amount = round(abs(spot_balance - spot_required), asset_precision)
         if spot_balance < spot_required:
             print(f"Attempting to move {rebalance_amount} {asset} from savings to spot")
-            self.telegram_notifier.send_message(f"Attempting to move {rebalance_amount} {asset} from savings to spot")
+            self.telegram_notifier.enqueue_message(
+                f"Attempting to move {rebalance_amount} {asset} from savings to spot"
+            )
             self.__redeem_asset_from_savings(asset, rebalance_amount)
         elif spot_balance > spot_required:
             print(f"Attempting to move {rebalance_amount} {asset} from spot to savings")
-            self.telegram_notifier.send_message(f"Attempting to move {rebalance_amount} {asset} from spot to savings")
+            self.telegram_notifier.enqueue_message(
+                f"Attempting to move {rebalance_amount} {asset} from spot to savings"
+            )
             self.__subscribe_asset_to_savings(asset, rebalance_amount)
         else:
             print("No rebalancing required")
-            self.telegram_notifier.send_message(f"No rebalancing required")
+            self.telegram_notifier.enqueue_message(f"No rebalancing required")
 
     def __subscribe_asset_to_savings(self, asset, quantity):
         """
@@ -173,14 +177,14 @@ class SavingsEvaluation:
         if quantity < min_purchase_amount:
             msg = f"{quantity} {asset} is less than the minimum Flexible Savings purchase amount. Will not rebalance {asset} asset."
             print(msg)
-            self.telegram_notifier.send_message(msg)
+            self.telegram_notifier.enqueue_message(msg)
             return
 
         # Check if we can subscribe to the asset, if not, add it as a failure for retrying later
         if not self.binance_client.can_purchase_savings_asset(asset):
             msg = f"{asset} is currently unavailable to purchase in Flexible Savings. Will retry when it becomes available"
             print(msg)
-            self.telegram_notifier.send_message(msg)
+            self.telegram_notifier.enqueue_message(msg)
             self.rebalance_failures.add(asset)
             return
 
@@ -189,7 +193,7 @@ class SavingsEvaluation:
             # self.binance_client.subscribe_to_savings(asset, quantity)
             msg = f"Moved {quantity} {asset} from Spot Wallet to Flexible Savings"
             print(msg)
-            self.telegram_notifier.send_message(msg)
+            self.telegram_notifier.enqueue_message(msg)
             self.__rebalanced_amounts_notifications(asset)
         except TelegramError as err:
             logging.exception(f"Exception occurred sending Telegram notification for {asset}: {err}")
@@ -197,7 +201,7 @@ class SavingsEvaluation:
         except Exception as err:
             logging.exception(f"Exception occurred when attempting to rebalance savings for {asset}: {err}")
             print(f"Adding failed asset {asset} to failure set for retrying...")
-            self.telegram_notifier.send_message(
+            self.telegram_notifier.enqueue_message(
                 f"Error occurred when rebalancing asset {asset}. Will attempt to retry. See logs for details"
             )
             self.rebalance_failures.add(asset)
@@ -213,14 +217,14 @@ class SavingsEvaluation:
         if savings_amount < quantity:
             msg = f"Not enough enough {asset} funds to cover upcoming Safety Orders. Moving all Flexible Savings to Spot Wallet. Required amount: {quantity} {asset} Flexible Savings: {savings_amount} {asset}"
             print(msg)
-            self.telegram_notifier.send_message(msg)
+            self.telegram_notifier.enqueue_message(msg)
             quantity = savings_amount
 
         # Check if we can redeem from the asset, if not, add it as a failure for retrying later
         if not self.binance_client.can_redeem_savings_asset(asset):
             msg = f"{asset} is currently unavailable to redeem from Flexible Savings. Will retry when it becomes available"
             print(msg)
-            self.telegram_notifier.send_message(msg)
+            self.telegram_notifier.enqueue_message(msg)
             self.rebalance_failures.add(asset)
             return
 
@@ -229,7 +233,7 @@ class SavingsEvaluation:
             # self.binance_client.redeem_from_savings(asset, quantity)
             msg = f"Moved {quantity} {asset} to Spot Wallet from Flexible Savings"
             print(msg)
-            self.telegram_notifier.send_message(msg)
+            self.telegram_notifier.enqueue_message(msg)
             self.__rebalanced_amounts_notifications(asset)
         except TelegramError as err:
             logging.exception(f"Exception occurred sending Telegram notification for {asset}: {err}")
@@ -237,7 +241,7 @@ class SavingsEvaluation:
         except Exception as err:
             logging.exception(f"Exception occurred when attempting to rebalance savings for {asset}: {err}")
             print(f"Adding failed asset {asset} to failure set for retrying...")
-            self.telegram_notifier.send_message(
+            self.telegram_notifier.enqueue_message(
                 f"Error occurred when rebalancing asset {asset}. Will retry. See logs for details"
             )
             self.rebalance_failures.add(asset)
@@ -249,4 +253,4 @@ class SavingsEvaluation:
         accruing_interest = self.binance_client.get_accruing_interest_savings_by_asset(asset)
         msg = f"{asset} savings rebalanced.\n\nSpot Wallet Available: {available_spot} {asset}\nSpot Wallet Total: {total_spot} {asset}\n\nAvailable Savings: {available_savings} {asset}\nAccruing Interest: {accruing_interest} {asset}"
         print(msg)
-        self.telegram_notifier.send_message(msg)
+        self.telegram_notifier.enqueue_message(msg)

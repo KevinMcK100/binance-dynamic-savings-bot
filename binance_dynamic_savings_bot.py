@@ -7,7 +7,6 @@ Usage:
 Start bot using /start. This triggers a reevaluation of current savings and starts the Telegram bot and order websocket listener.
 """
 
-import threading
 import yaml
 from binance_client import BinanceClient
 from failure_handler import FailureHandler

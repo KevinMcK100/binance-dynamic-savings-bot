@@ -1,9 +1,6 @@
-import threading
-from typing import final
+from savings_evaluation import SavingsEvaluation
 from telegram.ext import Updater, CommandHandler
 from telegram_notifier import TelegramNotifier
-from savings_evaluation import SavingsEvaluation
-from time import sleep
 
 
 class TelegramHandler:
@@ -44,23 +41,21 @@ class TelegramHandler:
     def __start(self, update, context):
         """Starts the bot. Executes on /start command"""
         if not self.bot_started:
-            self.telegram_notifier.initialise_notifier(context)
-            self.telegram_notifier.send_message("Starting Binance Dynamic Savings Bot...")
+            self.telegram_notifier.start_notifier(context)
+            self.telegram_notifier.enqueue_message("Binance Dynamic Savings Bot started successfully")
             # self.savings_evaluation.reevaluate_all_symbols()
             self.bot_started = True
         else:
-            self.telegram_notifier.send_message("Bot is already started. Execute /help for more commands")
+            self.telegram_notifier.enqueue_message("Bot is already started. Execute /help for more commands")
 
     def __reevaluate(self, update, context):
         """Reevaluates all assets and redistributes quote assets between Flexible Savings and Spot Wallet. Executes on /reevaluate command"""
         if self.bot_started:
-            self.telegram_notifier.send_message("Reevaluating quote assets...")
+            self.telegram_notifier.enqueue_message("Reevaluating quote assets...")
             self.savings_evaluation.reevaluate_all_symbols()
         else:
             print("Bot is not started. Execute /start command from Telegram")
 
     def __test(self, update, context):
-        print("Force rate limit")
-        for i in range(1, 20):
-            sleep(0.2)
-            self.telegram_notifier.send_message(f"My test message {i}")
+        print("Inside test function")
+        self.telegram_notifier.enqueue_message("Testing...")

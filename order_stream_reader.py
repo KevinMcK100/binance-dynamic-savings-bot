@@ -1,6 +1,8 @@
-import logging, os, threading, time
+import logging, os
 from order_processor import OrderProcessor
 from unicorn_binance_websocket_api import BinanceWebSocketApiManager
+from threading import Thread
+from time import sleep
 
 
 class OrderStreamReader:
@@ -25,7 +27,7 @@ class OrderStreamReader:
                 exit(0)
             new_event = binance_websocket_api_manager.pop_stream_data_from_stream_buffer(order_stream)
             if new_event is False:
-                time.sleep(0.01)
+                sleep(0.01)
             else:
                 try:
                     self.order_processor.process_order(new_event)
@@ -35,7 +37,7 @@ class OrderStreamReader:
     def monitor_order_stream(self, binance_websocket_api_manager):
         while True:
             binance_websocket_api_manager.print_summary()
-            time.sleep(60)
+            sleep(60)
 
     def start_order_stream(self):
         ubwa = BinanceWebSocketApiManager(exchange="binance.com", output_default="UnicornFy")
@@ -49,7 +51,7 @@ class OrderStreamReader:
             api_secret=self.secret_key,
         )
         # start a worker process to move the received stream_data from the stream_buffer to a print function
-        read_order_stream_worker = threading.Thread(target=self.read_order_stream_buffer, args=([ubwa, order_stream]))
+        read_order_stream_worker = Thread(target=self.read_order_stream_buffer, args=([ubwa, order_stream]))
         read_order_stream_worker.start()
-        monitor_order_stream_worker = threading.Thread(target=self.monitor_order_stream, args=([ubwa]))
+        monitor_order_stream_worker = Thread(target=self.monitor_order_stream, args=([ubwa]))
         monitor_order_stream_worker.start()

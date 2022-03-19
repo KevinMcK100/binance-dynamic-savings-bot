@@ -31,7 +31,7 @@ class OrderProcessor:
     def __handle_new_safety_order(self, order_event):
         side = order_event["side"]
         symbol = order_event["symbol"]
-        self.telegram_notifier.send_message(f"{side} order event received on {symbol}")
+        self.telegram_notifier.enqueue_message(f"{side} order event received on {symbol}")
         self.savings_evaluation.reevaluate_symbol(symbol)
 
     def __log_order_event(self, prepend, order_event):
@@ -45,4 +45,4 @@ class OrderProcessor:
         log = f"{prepend}\tSymbol: {symbol} \n\tSide: {side} \n\tQuantity: {qty} \n\tPrice: {price} \n\tStatus: {status}\n\tOrder ID: {client_order_id}"
         print(log)
         msg = f"{prepend}Symbol: {symbol} \nSide: {side} \nQuantity: {qty} \nPrice: {price} \nStatus: {status}\nOrder ID: {client_order_id}"
-        self.telegram_notifier.send_message(msg)
+        self.telegram_notifier.enqueue_message(msg)
