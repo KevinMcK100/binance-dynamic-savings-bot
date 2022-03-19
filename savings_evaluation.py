@@ -1,6 +1,7 @@
 import logging, threading
 from binance_client import BinanceClient
 from telegram_notifier import TelegramNotifier
+from telegram.error import TelegramError
 
 
 class SavingsEvaluation:
@@ -34,11 +35,14 @@ class SavingsEvaluation:
         try:
             self.rebalance_mutex.acquire()
             self.__reevaluate_symbol(symbol)
+        except TelegramError as ex:
+            logging.exception(f"Exception occurred sending Telegram notification for {symbol}: {ex}")
+            print(f"Exception occurred sending Telegram notification for {symbol}: {ex}")
         except Exception as ex:
             msg = f"Unexpected error occurred while rebalancing for {symbol}. Will not retry. See logs for more details. Exception: {ex}"
             print(msg)
             self.telegram_notifier.send_message(msg)
-            raise
+            logging.exception(ex)
         finally:
             self.rebalance_mutex.release()
 
@@ -46,11 +50,14 @@ class SavingsEvaluation:
         try:
             self.rebalance_mutex.acquire()
             self.__reevaluate_all_symbols()
+        except TelegramError as ex:
+            logging.exception(f"Exception occurred sending Telegram notification on reevaluate all symbols: {ex}")
+            print(f"Exception occurred sending Telegram notification for reevaluate all symbols: {ex}")
         except Exception as ex:
             msg = f"Unexpected error occurred while rebalancing all assets. Will not retry. See logs for more details. Exception: {ex}"
             print(msg)
             self.telegram_notifier.send_message(msg)
-            raise
+            logging.exception(ex)
         finally:
             self.rebalance_mutex.release()
 
@@ -184,6 +191,9 @@ class SavingsEvaluation:
             print(msg)
             self.telegram_notifier.send_message(msg)
             self.__rebalanced_amounts_notifications(asset)
+        except TelegramError as err:
+            logging.exception(f"Exception occurred sending Telegram notification for {asset}: {err}")
+            print(f"Exception occurred sending Telegram notification for {asset}: {err}")
         except Exception as err:
             logging.exception(f"Exception occurred when attempting to rebalance savings for {asset}: {err}")
             print(f"Adding failed asset {asset} to failure set for retrying...")
@@ -221,6 +231,9 @@ class SavingsEvaluation:
             print(msg)
             self.telegram_notifier.send_message(msg)
             self.__rebalanced_amounts_notifications(asset)
+        except TelegramError as err:
+            logging.exception(f"Exception occurred sending Telegram notification for {asset}: {err}")
+            print(f"Exception occurred sending Telegram notification for {asset}: {err}")
         except Exception as err:
             logging.exception(f"Exception occurred when attempting to rebalance savings for {asset}: {err}")
             print(f"Adding failed asset {asset} to failure set for retrying...")

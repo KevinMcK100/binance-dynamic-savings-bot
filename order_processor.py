@@ -21,6 +21,7 @@ class OrderProcessor:
         if order_event["event_type"] == "executionReport":
             # Only proceed if client order ID matches format for DCA bot
             if re.match(self.order_id_regex, order_event["client_order_id"]):
+
                 self.__log_order_event("3Commas order received:\n\n", order_event)
                 self.__handle_new_safety_order(order_event)
                 # logging.info(order_event)
@@ -41,6 +42,7 @@ class OrderProcessor:
         status = order_event["current_order_status"]
         client_order_id = order_event["client_order_id"]
 
+        log = f"{prepend}\tSymbol: {symbol} \n\tSide: {side} \n\tQuantity: {qty} \n\tPrice: {price} \n\tStatus: {status}\n\tOrder ID: {client_order_id}"
+        print(log)
         msg = f"{prepend}Symbol: {symbol} \nSide: {side} \nQuantity: {qty} \nPrice: {price} \nStatus: {status}\nOrder ID: {client_order_id}"
-        print(msg)
         self.telegram_notifier.send_message(msg)

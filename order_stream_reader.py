@@ -27,7 +27,10 @@ class OrderStreamReader:
             if new_event is False:
                 time.sleep(0.01)
             else:
-                self.order_processor.process_order(new_event)
+                try:
+                    self.order_processor.process_order(new_event)
+                except Exception as ex:
+                    logging.exception(ex)
 
     def monitor_order_stream(self, binance_websocket_api_manager):
         while True:

@@ -56,4 +56,4 @@ class FailureHandler:
                 self.telegram_notifier.send_message("Starting retry...")
                 self.savings_evaluation.rebalance_failures = set()
                 self.savings_evaluation.reevaluate_all_symbols()
-            time.sleep(10)
+            time.sleep(60)

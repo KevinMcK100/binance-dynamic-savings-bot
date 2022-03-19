@@ -30,7 +30,7 @@ class TelegramHandler:
         dp = self.updater.dispatcher
         dp.add_handler(CommandHandler("start", self.__start))  # /start
         dp.add_handler(CommandHandler("reevaluate", self.__reevaluate))  # /reevaluate
-        dp.add_handler(CommandHandler("fail", self.__fail))  # /fail
+        dp.add_handler(CommandHandler("test", self.__test))  # /test
 
         # Start the Telegram Bot
         self.updater.start_polling()
@@ -55,10 +55,12 @@ class TelegramHandler:
         """Reevaluates all assets and redistributes quote assets between Flexible Savings and Spot Wallet. Executes on /reevaluate command"""
         if self.bot_started:
             self.telegram_notifier.send_message("Reevaluating quote assets...")
-            self.savings_evaluation.reevaluate_symbol("LUNAUSDT")
+            self.savings_evaluation.reevaluate_all_symbols()
         else:
             print("Bot is not started. Execute /start command from Telegram")
 
-    def __fail(self, update, context):
-        print("Faking failure")
-        self.savings_evaluation.rebalance_failures = {"USDT", "BTC"}
+    def __test(self, update, context):
+        print("Force rate limit")
+        for i in range(1, 20):
+            sleep(0.2)
+            self.telegram_notifier.send_message(f"My test message {i}")
