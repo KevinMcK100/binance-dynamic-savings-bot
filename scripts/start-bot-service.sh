@@ -12,7 +12,7 @@ PATH=$PATH:/home/${UserBot}/.local/bin;export $PATH
 # Install dependencies in virtual environment
 cd ${INSTALL_DIR}/..
 if [ ! -d venv ]; then
-    python3 -m venv venv
+    python3.9 -m venv venv
 fi
 # Activate virtual environment
 . venv/bin/activate
