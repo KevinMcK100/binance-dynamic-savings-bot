@@ -7,17 +7,24 @@ Usage:
 Start bot using /start. This triggers a reevaluation of current savings and starts the Telegram bot and order websocket listener.
 """
 
-import yaml
+import logging, os, yaml
 from assets_dataframe import AssetsDataframe
 from binance_client import BinanceClient
 from failure_handler import FailureHandler
-from telegram_handler import TelegramHandler
-from telegram_notifier import TelegramNotifier
 from order_processor import OrderProcessor
 from order_stream_reader import OrderStreamReader
 from rebalance_savings_scheduler import RebalanceSavingsScheduler
 from savings_evaluation import SavingsEvaluation
+from telegram_handler import TelegramHandler
+from telegram_notifier import TelegramNotifier
 
+# Enable logging
+logging.basicConfig(
+    level=logging.INFO,
+    filename=os.path.basename(__file__) + ".log",
+    format="{asctime} [{levelname:8}] {process} {thread} {module}: {message}",
+    style="{",
+)
 
 # Load config from .config.yml file
 def load_conf_file(config_file):
@@ -30,77 +37,6 @@ def load_conf_file(config_file):
 
 
 telegram_config, binance_config, dca_bot_config = load_conf_file(".config.yml")
-
-
-def is_open_so_set(current_deal_orders):
-    # Ensures we have at least one Base Order (FILLED) and one open Safety Order (NEW)
-    return len(set([ord["status"] for ord in current_deal_orders])) == 2
-
-
-def calculate_next_so_cost(open_so, step_size):
-    step_size_buffer = float(open_so["price"]) * float(step_size)
-    return float(open_so["quote_qty"]) * 1.05 + step_size_buffer
-
-
-def get_symbol_step_size(client, symbol):
-    return client.get_symbol_info(symbol=symbol)["filters"][2]["stepSize"]
-
-
-def filter_orders(orders, statuses, sides):
-    return [
-        {
-            "price": ord["price"],
-            "quote_qty": round(float(ord["origQty"]) * float(ord["price"]), 2),
-            "qty": ord["origQty"],
-            "order_id": ord["clientOrderId"],
-            "timestamp": ord["time"],
-            "status": ord["status"],
-            "side": ord["side"],
-        }
-        for ord in orders
-        if (ord["status"] in statuses and ord["side"] in sides)
-    ]
-
-
-def on_take_profit(client, symbol, con):
-
-    # step_size = get_symbol_step_size(client, symbol)
-    # orders = client.get_all_orders(symbol=symbol)
-    # filtered_orders = filter_orders(orders, ["FILLED", "NEW"], ["BUY", "SELL"])
-    # filtered_orders.sort(key=lambda x: x.get("timestamp"), reverse=True)
-    # tp_order = [
-    #     ord
-    #     for ord in filtered_orders
-    #     if ord["status"] == "FILLED" and ord["side"] == "SELL"
-    # ][0]
-    # cur = con.cursor()
-    # cur.execute(
-    #     "INSERT INTO take_profits VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    #     (
-    #         symbol,
-    #         tp_order["price"],
-    #         tp_order["quote_qty"],
-    #         tp_order["qty"],
-    #         tp_order["order_id"],
-    #         tp_order["timestamp"],
-    #         tp_order["status"],
-    #         tp_order["side"],
-    #         False,
-    #     ),
-    # )
-    # con.commit()
-    # print(tp_order)
-    # # for order in filtered_orders:
-    # #     print(order)
-    print("to be implemented with cache")
-
-
-def get_active_3c_symbols(client):
-    return {ord["symbol"] for ord in client.get_open_orders() if "deal" in ord["clientOrderId"]}
-
-
-def is_3commas_order(order_id):
-    return "deal" in order_id
 
 
 def main():

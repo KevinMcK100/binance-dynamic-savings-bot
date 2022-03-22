@@ -18,6 +18,9 @@ class SavingsEvaluation:
     We use a Semaphore here to achieve this.
     """
 
+    # Even for BTC a precision of 6 should be more than enough
+    MAX_PRECISION = 6
+
     def __init__(
         self,
         order_id_regex: str,
@@ -175,7 +178,7 @@ class SavingsEvaluation:
         # Notify user if we do not have enough in Flexible Savings to fund Spot Wallet requirements. In this case we will proceed to redeem all funds remaining
         savings_amount = self.binance_client.get_available_savings_by_asset(asset)
         if savings_amount < quantity:
-            msg = f"Not enough enough {asset} funds to cover upcoming Safety Orders. Moving all Flexible Savings to Spot Wallet. Required amount: {quantity} {asset} Flexible Savings: {savings_amount} {asset}"
+            msg = f"Not enough enough {asset} funds to cover upcoming Safety Orders. Moving all Flexible Savings to Spot Wallet. Required amount: {round(quantity, self.MAX_PRECISION)} {asset} Flexible Savings: {round(savings_amount, self.MAX_PRECISION)} {asset}"
             print(msg)
             self.telegram_notifier.enqueue_message(msg)
             quantity = savings_amount
@@ -191,7 +194,7 @@ class SavingsEvaluation:
         # Execute redemption from Flexible Savings
         try:
             # self.binance_client.redeem_from_savings(asset, quantity)
-            msg = f"Moved {quantity} {asset} to Spot Wallet from Flexible Savings"
+            msg = f"Moved {round(quantity, self.MAX_PRECISION)} {asset} to Spot Wallet from Flexible Savings"
             print(msg)
             self.telegram_notifier.enqueue_message(msg)
             self.__send_savings_summary_msg(asset)
@@ -212,7 +215,7 @@ class SavingsEvaluation:
         # Ensure we are not attempting to subscribe less than the minimum allowed amount
         min_purchase_amount = self.binance_client.get_savings_min_purchase_amount_by_asset(asset)
         if quantity < min_purchase_amount:
-            msg = f"{quantity} {asset} is less than the minimum Flexible Savings purchase amount. Will not rebalance {asset} asset."
+            msg = f"{round(quantity, self.MAX_PRECISION)} {asset} is less than the minimum Flexible Savings purchase amount. Will not rebalance {asset} asset."
             print(msg)
             self.telegram_notifier.enqueue_message(msg)
             return
@@ -228,7 +231,7 @@ class SavingsEvaluation:
         # Execute subscription to Flexible Savings
         try:
             # self.binance_client.subscribe_to_savings(asset, quantity)
-            msg = f"Moved {quantity} {asset} from Spot Wallet to Flexible Savings"
+            msg = f"Moved {round(quantity, self.MAX_PRECISION)} {asset} from Spot Wallet to Flexible Savings"
             print(msg)
             self.telegram_notifier.enqueue_message(msg)
             self.__send_savings_summary_msg(asset)
@@ -241,10 +244,12 @@ class SavingsEvaluation:
             self.rebalance_failures.add(asset)
 
     def __send_savings_summary_msg(self, asset, is_rebalanced=True):
-        available_spot = self.binance_client.get_available_asset_balance(asset)
-        total_spot = self.binance_client.get_total_asset_balance(asset)
-        available_savings = self.binance_client.get_available_savings_by_asset(asset)
-        accruing_interest = self.binance_client.get_accruing_interest_savings_by_asset(asset)
+        available_spot = round(self.binance_client.get_available_asset_balance(asset), self.MAX_PRECISION)
+        total_spot = round(self.binance_client.get_total_asset_balance(asset), self.MAX_PRECISION)
+        available_savings = round(self.binance_client.get_available_savings_by_asset(asset), self.MAX_PRECISION)
+        accruing_interest = round(
+            self.binance_client.get_accruing_interest_savings_by_asset(asset), self.MAX_PRECISION
+        )
         prepend_msg = (
             f"{asset} savings rebalanced." if is_rebalanced == True else f"{asset} savings did not need rebalanced."
         )
@@ -307,7 +312,7 @@ class SavingsEvaluation:
             if quote_balance < total_quote_required:
                 self.rebalance_savings(quote_asset, quote_precision, quote_balance, total_quote_required)
             else:
-                msg = f"Rebalance not required for {quote_asset}.\n\nAvailable balance: {quote_balance}\nRequired balance: {total_quote_required}"
+                msg = f"Rebalance not required for {quote_asset}.\n\nAvailable balance: {round(quote_balance, self.MAX_PRECISION)}\nRequired balance: {round(total_quote_required, self.MAX_PRECISION)}"
                 print(msg)
                 self.telegram_notifier.enqueue_message(msg)
 
