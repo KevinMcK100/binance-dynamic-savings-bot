@@ -8,12 +8,14 @@ Start bot using /start. This triggers a reevaluation of current savings and star
 """
 
 import yaml
+from assets_dataframe import AssetsDataframe
 from binance_client import BinanceClient
 from failure_handler import FailureHandler
 from telegram_handler import TelegramHandler
 from telegram_notifier import TelegramNotifier
 from order_processor import OrderProcessor
 from order_stream_reader import OrderStreamReader
+from rebalance_savings_scheduler import RebalanceSavingsScheduler
 from savings_evaluation import SavingsEvaluation
 
 
@@ -105,12 +107,22 @@ def main():
     telegram_notifier = TelegramNotifier(telegram_config["chat_id"])
 
     binance_client = BinanceClient(binance_config["api_key"], binance_config["secret_key"])
+    assets_dataframe = AssetsDataframe()
     savings_evaluation = SavingsEvaluation(
-        dca_bot_config["order_id_regex"], binance_client, telegram_notifier, dca_bot_config["dca_volume_scale"]
+        dca_bot_config["order_id_regex"],
+        binance_client,
+        telegram_notifier,
+        dca_bot_config["dca_volume_scale"],
+        assets_dataframe,
     )
-    failure_handler = FailureHandler(binance_client, savings_evaluation, telegram_notifier)
-    failure_handler.start()
-    telegram_handler = TelegramHandler(telegram_config["api_key"], telegram_notifier, savings_evaluation)
+
+    FailureHandler(binance_client, savings_evaluation, telegram_notifier)
+
+    schedule_hour, schedule_min = dca_bot_config["rebalance_time"]["hour"], dca_bot_config["rebalance_time"]["minute"]
+    rebalance_savings_scheduler = RebalanceSavingsScheduler(savings_evaluation, schedule_hour, schedule_min)
+    telegram_handler = TelegramHandler(
+        telegram_config["api_key"], telegram_notifier, savings_evaluation, rebalance_savings_scheduler
+    )
 
     order_processor = OrderProcessor(
         dca_bot_config["order_id_regex"], binance_client, savings_evaluation, telegram_notifier

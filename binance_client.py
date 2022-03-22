@@ -12,16 +12,16 @@ class BinanceClient:
     #                            Exchange Info Endpoints                           #
     # ---------------------------------------------------------------------------- #
 
-    def get_base_asset_from_symbol(self, symbol):
+    def get_base_asset_from_symbol(self, symbol) -> str:
         print(f"Attempting to fetch {symbol} base asset from cache")
-        return self.__get_symbol_info(symbol)["baseAsset"]
+        return str(self.__get_symbol_info(symbol)["baseAsset"])
 
-    def get_quote_asset_from_symbol(self, symbol):
+    def get_quote_asset_from_symbol(self, symbol) -> str:
         print(f"Attempting to fetch {symbol} quote asset from cache")
-        return self.__get_symbol_info(symbol)["quoteAsset"]
+        return str(self.__get_symbol_info(symbol)["quoteAsset"])
 
-    def get_quote_precision(self, symbol):
-        return self.__get_symbol_info(symbol)["quotePrecision"]
+    def get_quote_precision(self, symbol) -> int:
+        return int(self.__get_symbol_info(symbol)["quotePrecision"])
 
     @cached(cache=TTLCache(maxsize=100, ttl=24 * 60 * 60))
     def get_symbol_step_size(self, symbol):

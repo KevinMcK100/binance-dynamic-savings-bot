@@ -1,3 +1,4 @@
+from rebalance_savings_scheduler import RebalanceSavingsScheduler
 from savings_evaluation import SavingsEvaluation
 from telegram.ext import Updater, CommandHandler
 from telegram_notifier import TelegramNotifier
@@ -9,9 +10,11 @@ class TelegramHandler:
         api_key,
         telegram_notifier: TelegramNotifier,
         savings_evaluation: SavingsEvaluation,
+        rebalance_savings_scheduler: RebalanceSavingsScheduler,
     ):
         self.telegram_notifier = telegram_notifier
         self.savings_evaluation = savings_evaluation
+        self.rebalance_savings_scheduler = rebalance_savings_scheduler
         self.start_telegram_bot(api_key)
         self.bot_started = False
 
@@ -39,23 +42,29 @@ class TelegramHandler:
         self.updater.idle()
 
     def __start(self, update, context):
-        """Starts the bot. Executes on /start command"""
+        """
+        Starts the bot. Executes on /start command
+        """
         if not self.bot_started:
             self.telegram_notifier.start_notifier(context)
             self.telegram_notifier.enqueue_message("Binance Dynamic Savings Bot started successfully")
-            # self.savings_evaluation.reevaluate_all_symbols()
+            self.rebalance_savings_scheduler.start_scheduler()
+            next_run_info = self.rebalance_savings_scheduler.get_next_run_info()
+            self.telegram_notifier.enqueue_message(next_run_info)
             self.bot_started = True
         else:
             self.telegram_notifier.enqueue_message("Bot is already started. Execute /help for more commands")
 
     def __reevaluate(self, update, context):
-        """Reevaluates all assets and redistributes quote assets between Flexible Savings and Spot Wallet. Executes on /reevaluate command"""
+        """
+        Reevaluates all assets and redistributes quote assets between Flexible Savings and Spot Wallet. Executes on /reevaluate command
+        """
         if self.bot_started:
-            self.telegram_notifier.enqueue_message("Reevaluating quote assets...")
+            self.telegram_notifier.enqueue_message("Reevaluating all quote assets")
             self.savings_evaluation.reevaluate_all_symbols()
         else:
             print("Bot is not started. Execute /start command from Telegram")
 
     def __test(self, update, context):
         print("Inside test function")
-        self.telegram_notifier.enqueue_message("Testing...")
+        self.savings_evaluation.reevaluate_symbol("LUNAUSDT")

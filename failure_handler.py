@@ -32,8 +32,6 @@ class FailureHandler:
         self.binance_client = binance_client
         self.savings_evaluation = savings_evaluation
         self.telegram_notifier = telegram_notifier
-
-    def start(self):
         failure_worker = Thread(target=self.monitor_failures)
         failure_worker.start()
 

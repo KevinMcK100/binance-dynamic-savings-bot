@@ -23,6 +23,8 @@ MarkupSafe==2.1.0
 more-itertools==8.12.0
 multidict==6.0.2
 mypy-extensions==0.4.3
+numpy==1.22.3
+pandas==1.4.1
 pathspec==0.9.0
 platformdirs==2.5.1
 psutil==5.9.0
@@ -34,9 +36,11 @@ pytz-deprecation-shim==0.1.0.post0
 PyYAML==6.0
 regex==2022.3.2
 requests==2.27.1
+scheduler==0.6.3
 six==1.16.0
 tomli==2.0.1
 tornado==6.1
+typeguard==2.13.3
 typing_extensions==4.1.1
 tzdata==2021.5
 tzlocal==4.1

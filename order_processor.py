@@ -21,20 +21,28 @@ class OrderProcessor:
         if order_event["event_type"] == "executionReport":
             # Only proceed if client order ID matches format for DCA bot
             if re.match(self.order_id_regex, order_event["client_order_id"]):
-
-                self.__log_order_event("3Commas order received:\n\n", order_event)
-                self.__handle_new_safety_order(order_event)
-                # logging.info(order_event)
+                if self.__is_new_or_filled(order_event):
+                    if self.__is_buy_order(order_event):
+                        self.__log_order_event("3Commas BUY order received:\n\n", order_event)
+                        self.__handle_new_safety_order(order_event)
+                    else:
+                        self.__log_order_event("3Commas SELL order received:\n\n", order_event)
+                else:
+                    self.__log_order_event("Order status must be NEW or FILLED:\n\n", order_event, send_telegram=False)
             else:
-                self.__log_order_event("Non-3Commas order received:\n\n", order_event)
+                self.__log_order_event("Non-3Commas order received:\n\n", order_event, send_telegram=False)
+
+    def __is_new_or_filled(self, order):
+        return order["current_order_status"] == "NEW" or order["current_order_status"] == "FILLED"
+
+    def __is_buy_order(self, order):
+        return order["side"] == "BUY"
 
     def __handle_new_safety_order(self, order_event):
-        side = order_event["side"]
         symbol = order_event["symbol"]
-        self.telegram_notifier.enqueue_message(f"{side} order event received on {symbol}")
         self.savings_evaluation.reevaluate_symbol(symbol)
 
-    def __log_order_event(self, prepend, order_event):
+    def __log_order_event(self, prepend, order_event, send_telegram=True):
         symbol = order_event["symbol"]
         side = order_event["side"]
         qty = order_event["order_quantity"]
@@ -45,4 +53,5 @@ class OrderProcessor:
         log = f"{prepend}\tSymbol: {symbol} \n\tSide: {side} \n\tQuantity: {qty} \n\tPrice: {price} \n\tStatus: {status}\n\tOrder ID: {client_order_id}"
         print(log)
         msg = f"{prepend}Symbol: {symbol} \nSide: {side} \nQuantity: {qty} \nPrice: {price} \nStatus: {status}\nOrder ID: {client_order_id}"
-        self.telegram_notifier.enqueue_message(msg)
+        if send_telegram:
+            self.telegram_notifier.enqueue_message(msg)

@@ -72,6 +72,6 @@ class TelegramNotifier:
                 self.message_queue.appendleft(message)
                 sleep(retry_after)
             except Exception as telegram_ex:
-                msg = f"Unexpected exception sending message to Telegram. Will not retry. Error: {telegram_ex}"
+                msg = f"Unexpected exception sending message to Telegram. Will not retry sending message. Error: {telegram_ex}"
                 logging.exception(msg)
                 print(msg)
