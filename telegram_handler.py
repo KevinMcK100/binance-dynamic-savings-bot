@@ -11,10 +11,12 @@ class TelegramHandler:
         telegram_notifier: TelegramNotifier,
         savings_evaluation: SavingsEvaluation,
         rebalance_savings_scheduler: RebalanceSavingsScheduler,
+        dry_run: bool = False,
     ):
         self.telegram_notifier = telegram_notifier
         self.savings_evaluation = savings_evaluation
         self.rebalance_savings_scheduler = rebalance_savings_scheduler
+        self.dry_run = dry_run
         self.start_telegram_bot(api_key)
         self.bot_started = False
 
@@ -52,6 +54,10 @@ class TelegramHandler:
             self.rebalance_savings_scheduler.start_scheduler()
             self.rebalance_savings_scheduler.send_scheduler_summary()
             self.bot_started = True
+            if self.dry_run:
+                self.telegram_notifier.enqueue_message(
+                    "Running in dry-run mode. Will not move any assets between spot and savings"
+                )
         else:
             self.telegram_notifier.enqueue_message("Bot is already started. Execute /help for more commands")
 

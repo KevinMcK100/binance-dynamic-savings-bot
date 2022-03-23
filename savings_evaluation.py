@@ -28,12 +28,14 @@ class SavingsEvaluation:
         telegram_notifier: TelegramNotifier,
         dca_volume_scale: float,
         assets_dataframe: AssetsDataframe,
+        dry_run: bool = False,
     ):
         self.order_id_regex = order_id_regex
         self.binance_client = binance_client
         self.telegram_notifier = telegram_notifier
         self.dca_volume_scale = dca_volume_scale
         self.assets_dataframe = assets_dataframe
+        self.dry_run = dry_run
         self.rebalance_failures = set()
         self.rebalance_mutex = threading.Semaphore(1)
 
@@ -196,7 +198,13 @@ class SavingsEvaluation:
 
         # Execute redemption from Flexible Savings
         try:
-            # self.binance_client.redeem_from_savings(asset, quantity)
+            if self.dry_run == False:
+                self.binance_client.redeem_from_savings(asset, quantity)
+            else:
+                msg = f"Running in dry-run mode. Will not move any funds"
+                print(msg)
+                self.telegram_notifier.enqueue_message(msg)
+
             msg = f"Moved {round(quantity, self.MAX_PRECISION)} {asset} to Spot Wallet from Flexible Savings"
             print(msg)
             self.telegram_notifier.enqueue_message(msg)
@@ -233,7 +241,13 @@ class SavingsEvaluation:
 
         # Execute subscription to Flexible Savings
         try:
-            # self.binance_client.subscribe_to_savings(asset, quantity)
+            if self.dry_run == False:
+                self.binance_client.subscribe_to_savings(asset, quantity)
+            else:
+                msg = f"Running in dry-run mode. Will not move any funds"
+                print(msg)
+                self.telegram_notifier.enqueue_message(msg)
+
             msg = f"Moved {round(quantity, self.MAX_PRECISION)} {asset} from Spot Wallet to Flexible Savings"
             print(msg)
             self.telegram_notifier.enqueue_message(msg)

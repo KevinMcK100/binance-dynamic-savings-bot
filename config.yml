@@ -11,3 +11,4 @@ dca_bot:
   rebalance_time: # UTC time each day to rebalance funds between spot and savings. Binance cut off window is 23:50 UTC each day. Recommended to rebalance just before that
     hour: 23
     minute: 40
+  dry_run: false # Dry-run mode does the exact same as live mode, except it will stop short of actually rebalancing funds between spot and savings

@@ -50,6 +50,7 @@ def main():
         telegram_notifier,
         dca_bot_config["dca_volume_scale"],
         assets_dataframe,
+        dca_bot_config["dry_run"],
     )
 
     FailureHandler(binance_client, savings_evaluation, telegram_notifier)
@@ -59,7 +60,11 @@ def main():
         savings_evaluation, telegram_notifier, schedule_hour, schedule_min
     )
     telegram_handler = TelegramHandler(
-        telegram_config["api_key"], telegram_notifier, savings_evaluation, rebalance_savings_scheduler
+        telegram_config["api_key"],
+        telegram_notifier,
+        savings_evaluation,
+        rebalance_savings_scheduler,
+        dca_bot_config["dry_run"],
     )
 
     order_processor = OrderProcessor(
