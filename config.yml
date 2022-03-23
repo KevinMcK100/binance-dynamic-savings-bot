@@ -1,6 +1,7 @@
 telegram:
   api_key: "API_KEY" # API key for your Telegram bot
   chat_id: 123456789 # Your Telegram chat ID (including any "-" sign)
+  verbose: false # Use verbose messaging to Telegram
 binance:
   api_key: "API_KEY" # Binance API key
   secret_key: "SECRET_KEY" # Binance secret key

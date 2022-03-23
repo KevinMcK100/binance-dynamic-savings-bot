@@ -49,10 +49,10 @@ class SavingsEvaluation:
         finally:
             self.rebalance_mutex.release()
 
-    def reevaluate_all_symbols(self):
+    def rebalance_all_symbols(self):
         try:
             self.rebalance_mutex.acquire()
-            self.__reevaluate_all_symbols()
+            self.__rebalance_quote_assets()
         except Exception as ex:
             msg = f"Unexpected error occurred while rebalancing all assets. Will not retry. See logs for more details. Exception: {ex}"
             print(msg)
@@ -66,18 +66,21 @@ class SavingsEvaluation:
     # ---------------------------------------------------------------------------- #
 
     def __reevaluate_symbol(self, symbol):
-        self.telegram_notifier.enqueue_message(f"Reevaluating savings for {symbol}")
-        quote_precision = self.binance_client.get_quote_precision(symbol)
+        self.telegram_notifier.enqueue_message(f"Reevaluating spot balance for {symbol}")
         current_deal_orders = self.__get_current_deal_orders_by_symbol(symbol)
         if self.__is_safety_order_open(current_deal_orders):
             next_so = self.__calculate_next_order_value(symbol, current_deal_orders)
             quote_asset = self.binance_client.get_quote_asset_from_symbol(symbol)
             self.assets_dataframe.upsert(symbol, next_so, quote_asset)
             if self.__is_rebalance_required(quote_asset):
-                self.__reevaluate_symbol()
+                self.__rebalance_quote_assets(quote_asset=quote_asset)
             else:
                 quote_asset = self.binance_client.get_quote_asset_from_symbol(symbol)
                 self.__send_savings_summary_msg(quote_asset, is_rebalanced=False)
+        else:
+            msg = f"Safety order not yet open for {symbol}"
+            print(msg)
+            self.telegram_notifier.enqueue_message(msg)
 
     def __is_safety_order_open(self, current_deal_orders):
         """
@@ -97,7 +100,7 @@ class SavingsEvaluation:
     #                 Rebalance savings for one or all quote assets                #
     # ---------------------------------------------------------------------------- #
 
-    def __reevaluate_all_symbols(self, quote_asset=None):
+    def __rebalance_quote_assets(self, quote_asset=None):
         active_symbols = self.binance_client.get_symbols_by_client_order_id(self.order_id_regex)
         quote_assets = self.__get_quote_assets(active_symbols) if quote_asset is None else set(quote_asset)
         self.telegram_notifier.enqueue_message("Reevaluating quote assets: {0}".format(", ".join(quote_assets)))
@@ -256,83 +259,3 @@ class SavingsEvaluation:
         msg = f"{prepend_msg}\n\nSpot Wallet Available: {available_spot} {asset}\nSpot Wallet Total: {total_spot} {asset}\n\nAvailable Savings: {available_savings} {asset}\nAccruing Interest: {accruing_interest} {asset}"
         print(msg)
         self.telegram_notifier.enqueue_message(msg)
-
-    # ---------------------------------------------------------------------------- #
-    #                          OLD METHODS (to be deleted)                         #
-    # ---------------------------------------------------------------------------- #
-
-    def __reevaluate_symbol_old(self, symbol):
-        self.telegram_notifier.enqueue_message(f"Reevaluating savings for {symbol}...")
-        quote_asset = list(self.__get_quote_assets([symbol]))[0]
-        quote_precision = int(self.binance_client.get_quote_precision(symbol))
-        next_order_cost = self.__calculate_next_order_value(symbol)
-        # We do not queue for retry here because we expect a subsequent order event to be triggered once Safety Order has been placed by DCA bot
-        if next_order_cost is None:
-            return
-        self.assets_dataframe.upsert(symbol, next_order_cost, quote_asset)
-        self.assets_dataframe.print_df()
-        quote_balance = self.binance_client.get_available_asset_balance(quote_asset)
-        self.rebalance_savings(quote_asset, quote_precision, quote_balance, next_order_cost)
-
-    def __reevaluate_all_symbols_old(self):
-        self.telegram_notifier.enqueue_message("Reevaluating all Symbols...")
-        active_symbols = self.binance_client.get_symbols_by_client_order_id(self.order_id_regex)
-        self.telegram_notifier.enqueue_message("Active currency pairs: \n\n{0}".format("\n".join(active_symbols)))
-        quote_assets = self.__get_quote_assets(active_symbols)
-        self.telegram_notifier.enqueue_message("Quote assets to rebalance: {0}".format(", ".join(quote_assets)))
-        print(f"Active quote assets: {quote_assets}")
-        for quote_asset in quote_assets:
-            print(f"Rebalancing all assets paired with {quote_asset} quote asset")
-            # Get all symbols which match the quote asset. Eg, all symbols ending with USDT or USDC or BTC
-            quote_symbols = [sym for sym in active_symbols if str(sym).endswith(quote_asset)]
-            print(f"All assets to rebalance: {quote_symbols}")
-            quote_precision = int(self.binance_client.get_quote_precision(quote_symbols[0]))
-            # If any one calculation returns None (ie. doesn't have Safety Order set) then treat as a failure and queue for retry
-            try:
-                for symbol in quote_symbols:
-                    next_so = self.__calculate_next_order_value(symbol)
-                    self.assets_dataframe.upsert(symbol, next_so, quote_asset)
-                # total_quote_required = sum([self.__calculate_next_order_value(sym) for sym in quote_symbols])
-                self.assets_dataframe.print_df()
-                sum_so = self.assets_dataframe.sum_next_orders(quote_asset)
-                max_so = self.assets_dataframe.max_next_orders(quote_asset)
-                total_quote_required = max(sum_so * 0.5, max_so)
-                print(f"Sum SO: {sum_so}")
-                print(f"Max SO: {max_so}")
-                print(f"Quote amount required: {total_quote_required}")
-            except TypeError as err:
-                err_msg = f"Unable to preform rebalancing calculations for {quote_asset} as some base assets don't have Safety Orders in place yet. Queueing for retry."
-                logging.exception(f"{err_msg} Error: {err}")
-                self.telegram_notifier.enqueue_message(err_msg)
-                self.rebalance_failures.add(quote_asset)
-                return
-
-            print(f"Total quote required: {total_quote_required}")
-            quote_balance = self.binance_client.get_available_asset_balance(quote_asset)
-            if quote_balance < total_quote_required:
-                self.rebalance_savings(quote_asset, quote_precision, quote_balance, total_quote_required)
-            else:
-                msg = f"Rebalance not required for {quote_asset}.\n\nAvailable balance: {round(quote_balance, self.MAX_PRECISION)}\nRequired balance: {round(total_quote_required, self.MAX_PRECISION)}"
-                print(msg)
-                self.telegram_notifier.enqueue_message(msg)
-
-    def __calculate_next_order_value_old(self, symbol) -> float:
-        step_size = self.binance_client.get_symbol_step_size(symbol)
-        orders = self.binance_client.get_all_orders_by_symbol(symbol)
-
-        filtered_orders = self.__filter_orders(orders, ["FILLED", "NEW"], ["BUY"])
-        filtered_orders.sort(key=lambda x: x.get("timestamp"), reverse=True)
-
-        # Extract the 3Commas deal ID from the client order ID
-        deal_id = str(filtered_orders[0]["order_id"]).split("_")[-2]
-        # Get all orders associated with the most recent deal
-        current_deal_orders = [ord for ord in filtered_orders if deal_id in ord["order_id"]]
-
-        if self.__is_safety_order_open(current_deal_orders):
-            open_so = [ord for ord in current_deal_orders if ord["status"] == "NEW"][0]
-            next_so_cost = self.__calculate_next_so_cost(open_so, step_size)
-            print(f"Next safety order cost: {next_so_cost}")
-            return next_so_cost
-        else:
-            print("Must have FILLED and NEW orders in order list")
-        return None

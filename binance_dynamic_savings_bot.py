@@ -40,7 +40,7 @@ telegram_config, binance_config, dca_bot_config = load_conf_file(".config.yml")
 
 
 def main():
-    telegram_notifier = TelegramNotifier(telegram_config["chat_id"])
+    telegram_notifier = TelegramNotifier(telegram_config["chat_id"], telegram_config["verbose"])
 
     binance_client = BinanceClient(binance_config["api_key"], binance_config["secret_key"])
     assets_dataframe = AssetsDataframe()

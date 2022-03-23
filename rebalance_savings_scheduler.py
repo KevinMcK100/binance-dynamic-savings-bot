@@ -23,7 +23,7 @@ class RebalanceSavingsScheduler:
     def start_scheduler(self):
         self.scheduler = BackgroundScheduler(timezone=pytz.utc)
         self.job = self.scheduler.add_job(
-            self.savings_evaluation.reevaluate_all_symbols, "cron", hour=self.schedule_hour, minute=self.schedule_min
+            self.savings_evaluation.rebalance_all_symbols, "cron", hour=self.schedule_hour, minute=self.schedule_min
         )
         self.scheduler.start()
         print(f"Started Rebalance Savings Scheduler")

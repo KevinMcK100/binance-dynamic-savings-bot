@@ -18,9 +18,10 @@ class TelegramNotifier:
     https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this
     """
 
-    def __init__(self, chat_id):
-        self.context = None
+    def __init__(self, chat_id: str, verbose: bool = False):
         self.chat_id = chat_id
+        self.verbose = verbose
+        self.context = None
         self.message_queue = deque()
 
     def start_notifier(self, context):
@@ -31,11 +32,11 @@ class TelegramNotifier:
         message_queue_worker = Thread(target=self.__read_message_queue)
         message_queue_worker.start()
 
-    def enqueue_message(self, message):
+    def enqueue_message(self, message: str, is_verbose: bool = False):
         """
         Enqueues a message to be picked by the worker thread and sent to Telegram group
         """
-        self.message_queue.append(message)
+        self.message_queue.append((message, is_verbose))
 
     def __read_message_queue(self):
         """
@@ -51,7 +52,7 @@ class TelegramNotifier:
                 self.__send_message(self.message_queue.popleft())
             sleep(1)
 
-    def __send_message(self, message):
+    def __send_message(self, queue_item: tuple):
         """
         Sends a message to Telegram group
 
@@ -61,15 +62,17 @@ class TelegramNotifier:
         This addresses the second rate limiting constraint:
         "your bot will not be able to send more than 20 messages per minute to the same group"
         """
+        message = queue_item[0]
+        is_verbose = queue_item[1]
         if self.context is None or self.chat_id is None:
             print(f"Telegram bot not yet started. Couldn't send message: {message}")
-        else:
+        elif self.verbose == True or is_verbose == False:
             try:
                 self.context.bot.send_message(chat_id=self.chat_id, text=message, parse_mode="HTML")
             except RetryAfter as retry_ex:
                 retry_after = retry_ex.retry_after
                 print(f"Received rate limit error. Retrying after {retry_after} seconds.")
-                self.message_queue.appendleft(message)
+                self.message_queue.appendleft(queue_item)
                 sleep(retry_after)
             except Exception as telegram_ex:
                 msg = f"Unexpected exception sending message to Telegram. Will not retry sending message. Error: {telegram_ex}"

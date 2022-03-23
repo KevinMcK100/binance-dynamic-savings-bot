@@ -54,7 +54,7 @@ class FailureHandler:
                     break
             if can_rebalance:
                 print("Clearing failures and attempting to rebalance all symbols")
-                self.telegram_notifier.enqueue_message("Starting retry...")
+                self.telegram_notifier.enqueue_message("Starting retry...", is_verbose=True)
                 self.savings_evaluation.rebalance_failures = set()
-                self.savings_evaluation.reevaluate_all_symbols()
+                self.savings_evaluation.rebalance_all_symbols()
             sleep(self.ONE_MINUTE)
