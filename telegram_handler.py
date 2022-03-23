@@ -30,7 +30,7 @@ class TelegramHandler:
         dp = self.updater.dispatcher
         dp.add_handler(CommandHandler("start", self.__start))  # /start
         dp.add_handler(CommandHandler("reevaluate", self.__reevaluate))  # /reevaluate
-        dp.add_handler(CommandHandler("test", self.__test))  # /test
+        dp.add_handler(CommandHandler("scheduler", self.__scheduler))  # /scheduler
 
         # Start the Telegram Bot
         self.updater.start_polling()
@@ -49,8 +49,7 @@ class TelegramHandler:
             self.telegram_notifier.start_notifier(context)
             self.telegram_notifier.enqueue_message("Binance Dynamic Savings Bot started successfully")
             self.rebalance_savings_scheduler.start_scheduler()
-            next_run_info = self.rebalance_savings_scheduler.get_next_run_info()
-            self.telegram_notifier.enqueue_message(next_run_info)
+            self.rebalance_savings_scheduler.send_scheduler_summary()
             self.bot_started = True
         else:
             self.telegram_notifier.enqueue_message("Bot is already started. Execute /help for more commands")
@@ -65,6 +64,6 @@ class TelegramHandler:
         else:
             print("Bot is not started. Execute /start command from Telegram")
 
-    def __test(self, update, context):
-        print("Inside test function")
-        self.savings_evaluation.reevaluate_symbol("LUNAUSDT")
+    def __scheduler(self, update, context):
+        next_run_info = self.rebalance_savings_scheduler.send_scheduler_summary()
+        self.telegram_notifier.enqueue_message(next_run_info)

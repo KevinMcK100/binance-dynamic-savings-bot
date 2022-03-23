@@ -1,32 +1,45 @@
+import pytz
 import datetime as dt
-
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.job import Job
 from savings_evaluation import SavingsEvaluation
-from scheduler import Scheduler
+from telegram_notifier import TelegramNotifier
 
 
 class RebalanceSavingsScheduler:
-
-    UTC = dt.timezone.utc
-
-    def __init__(self, savings_evaluation: SavingsEvaluation, schedule_hour: int, schedule_min: int):
+    def __init__(
+        self,
+        savings_evaluation: SavingsEvaluation,
+        telegram_notifier: TelegramNotifier,
+        schedule_hour: int,
+        schedule_min: int,
+    ):
         self.savings_evaluation = savings_evaluation
+        self.telegram_notifier = telegram_notifier
         self.schedule_hour = schedule_hour
         self.schedule_min = schedule_min
         self.job = None
 
     def start_scheduler(self):
-        schedule = Scheduler(tzinfo=self.UTC)
-        self.job = schedule.daily(
-            dt.time(hour=self.schedule_hour, minute=self.schedule_min, tzinfo=self.UTC),
-            self.savings_evaluation.reevaluate_all_symbols,
+        self.scheduler = BackgroundScheduler(timezone=pytz.utc)
+        self.job = self.scheduler.add_job(
+            self.savings_evaluation.reevaluate_all_symbols, "cron", hour=self.schedule_hour, minute=self.schedule_min
         )
-        print(f"\n- - Started Rebalance Savings Scheduler - -\n\n{schedule}")
+        self.scheduler.start()
+        print(f"Started Rebalance Savings Scheduler")
 
-    def get_next_run_info(self) -> str:
-        next_run_info = "Rebalancing scheduled job is not started!"
-        if self.job is not None:
-            time = self.job.datetime.strftime("%m/%d/%Y %H:%M:%S")
-            zone = self.job.datetime.tzname()
-            run_in = str(self.job.timedelta()).split(".")[0]
-            next_run_info = f"Savings rebalance scheduled for {time} {zone}. Runs in {run_in} from now"
-        return next_run_info
+    def send_scheduler_summary(self) -> str:
+        job_messages = ["Rebalancing scheduled job is not started!"]
+        job: Job
+        for job in self.scheduler.get_jobs():
+            if job is not None:
+                job_messages = []
+                time = str(job.next_run_time).split("+")[0]
+                zone = self.scheduler.timezone.zone
+                next_run = job.next_run_time
+                now = dt.datetime.now(tz=pytz.utc)
+                delta = next_run - now
+                fmt_delta = str(delta).split(".")[0]
+                job_messages.append(f"Savings rebalance scheduled for {time} {zone}.\n\nRuns in {fmt_delta} from now")
+        [self.telegram_notifier.enqueue_message(msg) for msg in job_messages]
+        self.scheduler.print_jobs()

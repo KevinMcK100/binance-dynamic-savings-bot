@@ -55,7 +55,9 @@ def main():
     FailureHandler(binance_client, savings_evaluation, telegram_notifier)
 
     schedule_hour, schedule_min = dca_bot_config["rebalance_time"]["hour"], dca_bot_config["rebalance_time"]["minute"]
-    rebalance_savings_scheduler = RebalanceSavingsScheduler(savings_evaluation, schedule_hour, schedule_min)
+    rebalance_savings_scheduler = RebalanceSavingsScheduler(
+        savings_evaluation, telegram_notifier, schedule_hour, schedule_min
+    )
     telegram_handler = TelegramHandler(
         telegram_config["api_key"], telegram_notifier, savings_evaluation, rebalance_savings_scheduler
     )

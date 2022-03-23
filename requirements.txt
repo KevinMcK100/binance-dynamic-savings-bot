@@ -9,7 +9,9 @@ aiohttp==3.8.1
 aiosignal==1.2.0
     # via aiohttp
 apscheduler==3.6.3
-    # via python-telegram-bot
+    # via
+    #   -r requirements.in
+    #   python-telegram-bot
 async-timeout==4.0.2
     # via aiohttp
 attrs==21.4.0
@@ -66,8 +68,6 @@ regex==2022.3.2
     # via dateparser
 requests==2.27.1
     # via python-binance
-scheduler==0.6.3
-    # via -r requirements.in
 six==1.16.0
     # via
     #   apscheduler
@@ -75,8 +75,6 @@ six==1.16.0
     #   python-dateutil
 tornado==6.1
     # via python-telegram-bot
-typeguard==2.13.3
-    # via scheduler
 tzdata==2022.1
     # via pytz-deprecation-shim
 tzlocal==4.1

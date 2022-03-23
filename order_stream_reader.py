@@ -1,9 +1,8 @@
+import pytz
+from apscheduler.schedulers.background import BackgroundScheduler
 from binance import ThreadedWebsocketManager
-from datetime import timedelta
 from order_processor import OrderProcessor
-from scheduler import Scheduler
 from threading import Thread
-from time import sleep
 
 
 class OrderStreamReader:
@@ -19,8 +18,10 @@ class OrderStreamReader:
         self.twm.start_user_socket(callback=self.__handle_order_event)
         self.__do_health_check()
 
-        monitor_worker = Thread(target=self.__start_monitoring)
-        monitor_worker.start()
+        # Start health check scheduler
+        scheduler = BackgroundScheduler(timezone=pytz.utc)
+        scheduler.add_job(self.__do_health_check, "interval", minutes=10)
+        scheduler.start()
 
     def __handle_order_event(self, order_event):
         if order_event["e"] == "executionReport":
@@ -36,13 +37,6 @@ class OrderStreamReader:
             "price": order["p"],
             "status": order["X"],
         }
-
-    def __start_monitoring(self):
-        schedule = Scheduler()
-        schedule.cyclic(timedelta(minutes=10), self.__do_health_check)
-        while True:
-            schedule.exec_jobs()
-            sleep(1)
 
     def __do_health_check(self):
         print(f"ThreadedWebsocketManager health check: {self.twm.is_alive()}")
