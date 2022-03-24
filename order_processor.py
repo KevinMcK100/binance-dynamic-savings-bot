@@ -20,19 +20,12 @@ class OrderProcessor:
     def process_order(self, order_event: dict):
         # Only proceed if client order ID matches format for DCA bot
         if re.match(self.order_id_regex, order_event["order_id"]):
-            # Ignore base orders. Wait to receive subsequent safety order
-            if not self.__is_base_order(order_event):
-                if self.__is_buy_order(order_event):
-                    self.__handle_buy_order(order_event)
-                else:
-                    self.__handle_sell_order(order_event)
+            if self.__is_buy_order(order_event):
+                self.__handle_buy_order(order_event)
             else:
-                self.__log_order_event("3Commas base order received:\n\n", order_event, verbose=True)
+                self.__handle_sell_order(order_event)
         else:
             self.__log_order_event("Non-3Commas order received:\n\n", order_event, verbose=True)
-
-    def __is_base_order(self, order):
-        return str(order["order_id"]).endswith("0")
 
     def __is_buy_order(self, order):
         return order["side"] == "BUY"
@@ -42,10 +35,10 @@ class OrderProcessor:
     # ---------------------------------------------------------------------------- #
     def __handle_buy_order(self, order):
         if self.__is_new_order(order):
-            self.__log_order_event("3Commas BUY order received:\n\n", order)
+            self.__log_order_event("New BUY order received:\n\n", order)
             self.__handle_new_safety_order(order)
         else:
-            self.__log_order_event("Order status must be NEW or FILLED:\n\n", order, verbose=True)
+            self.__log_order_event("Order status must be NEW to trigger reevaluation:\n\n", order, verbose=True)
 
     def __is_new_order(self, order):
         return order["status"] == "NEW"

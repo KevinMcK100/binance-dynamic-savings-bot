@@ -78,4 +78,4 @@ class TelegramHandler:
             print("Bot is not started. Execute /start command from Telegram")
 
     def __test(self, update, context):
-        self.savings_evaluation.reevaluate_symbol("LUNAUSDT")
+        self.savings_evaluation.reevaluate_symbol("MATICUSDT")

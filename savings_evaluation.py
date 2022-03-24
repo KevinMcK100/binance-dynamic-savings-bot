@@ -68,10 +68,10 @@ class SavingsEvaluation:
     # ---------------------------------------------------------------------------- #
 
     def __reevaluate_symbol(self, symbol):
-        self.telegram_notifier.enqueue_message(f"Reevaluating spot balance for {symbol}")
         current_deal_orders = self.__get_current_deal_orders_by_symbol(symbol)
         self.__log_orders(current_deal_orders, "Current Deal Orders")
         if self.__is_safety_order_open(current_deal_orders):
+            self.telegram_notifier.enqueue_message(f"Reevaluating spot balance for {symbol}")
             next_so = self.__calculate_next_order_value(symbol, current_deal_orders)
             quote_asset = self.binance_client.get_quote_asset_from_symbol(symbol)
             self.assets_dataframe.upsert(symbol, next_so, quote_asset)
@@ -81,7 +81,7 @@ class SavingsEvaluation:
                 quote_asset = self.binance_client.get_quote_asset_from_symbol(symbol)
                 self.__send_savings_summary_msg(quote_asset, is_rebalanced=False)
         else:
-            msg = f"Safety order not yet open for {symbol}"
+            msg = f"Evaluated current deal orders but safety order is not yet open for {symbol}"
             print(msg)
             self.telegram_notifier.enqueue_message(msg)
 
