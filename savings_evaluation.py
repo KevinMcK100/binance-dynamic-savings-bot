@@ -85,7 +85,7 @@ class SavingsEvaluation:
             print(msg)
             self.telegram_notifier.enqueue_message(msg)
 
-    def __log_orders(orders: list, label: str):
+    def __log_orders(self, orders: list, label: str):
         print(f"\n- -{label} START - -")
         for order in orders:
             print(order)
