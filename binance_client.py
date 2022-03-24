@@ -24,6 +24,10 @@ class BinanceClient:
         return int(self.__get_symbol_info(symbol)["quotePrecision"])
 
     @cached(cache=TTLCache(maxsize=100, ttl=24 * 60 * 60))
+    def get_cached_symbol_price(self, symbol) -> float:
+        return float(self.client.get_avg_price(symbol=symbol)["price"])
+
+    @cached(cache=TTLCache(maxsize=100, ttl=24 * 60 * 60))
     def get_symbol_step_size(self, symbol):
         """Don't fetch from cached symbol info as step size is something that changes occasionally"""
         return self.client.get_symbol_info(symbol=symbol)["filters"][2]["stepSize"]

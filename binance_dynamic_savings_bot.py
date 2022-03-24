@@ -8,6 +8,7 @@ Start bot using /start. This triggers a reevaluation of current savings and star
 """
 
 import logging, os, yaml
+from asset_precision_calculator import AssetPrecisionCalculator
 from assets_dataframe import AssetsDataframe
 from binance_client import BinanceClient
 from failure_handler import FailureHandler
@@ -44,12 +45,14 @@ def main():
 
     binance_client = BinanceClient(binance_config["api_key"], binance_config["secret_key"])
     assets_dataframe = AssetsDataframe()
+    asset_precision_calculator = AssetPrecisionCalculator(binance_client)
     savings_evaluation = SavingsEvaluation(
         dca_bot_config["order_id_regex"],
         binance_client,
         telegram_notifier,
         dca_bot_config["dca_volume_scale"],
         assets_dataframe,
+        asset_precision_calculator,
         dca_bot_config["dry_run"],
     )
 

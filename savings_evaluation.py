@@ -1,8 +1,9 @@
 import logging, threading
-from typing import Any, Dict, List
+from asset_precision_calculator import AssetPrecisionCalculator
 from assets_dataframe import AssetsDataframe
 from binance_client import BinanceClient
 from telegram_notifier import TelegramNotifier
+from typing import Any, Dict, List
 
 
 class SavingsEvaluation:
@@ -18,9 +19,6 @@ class SavingsEvaluation:
     We use a Semaphore here to achieve this.
     """
 
-    # Even for BTC a precision of 6 should be more than enough
-    MAX_PRECISION = 6
-
     def __init__(
         self,
         order_id_regex: str,
@@ -28,6 +26,7 @@ class SavingsEvaluation:
         telegram_notifier: TelegramNotifier,
         dca_volume_scale: float,
         assets_dataframe: AssetsDataframe,
+        asset_precision_calculator: AssetPrecisionCalculator,
         dry_run: bool = False,
     ):
         self.order_id_regex = order_id_regex
@@ -35,6 +34,7 @@ class SavingsEvaluation:
         self.telegram_notifier = telegram_notifier
         self.dca_volume_scale = dca_volume_scale
         self.assets_dataframe = assets_dataframe
+        self.asset_precision_calculator = asset_precision_calculator
         self.dry_run = dry_run
         self.rebalance_failures = set()
         self.rebalance_mutex = threading.Semaphore(1)
@@ -179,11 +179,14 @@ class SavingsEvaluation:
         Move an amount of the asset from Flexible Savings to Spot Wallet
         """
         print(f"Redeeming {quantity} {asset} to Spot Wallet")
+        precision = self.asset_precision_calculator.get_asset_precision(asset)
+        rounded_qty = f"%.{precision}f" % quantity
 
         # Notify user if we do not have enough in Flexible Savings to fund Spot Wallet requirements. In this case we will proceed to redeem all funds remaining
         savings_amount = self.binance_client.get_available_savings_by_asset(asset)
         if savings_amount < quantity:
-            msg = f"Not enough enough {asset} funds to cover upcoming Safety Orders. Moving all Flexible Savings to Spot Wallet. Required amount: {round(quantity, self.MAX_PRECISION)} {asset} Flexible Savings: {round(savings_amount, self.MAX_PRECISION)} {asset}"
+            rounded_savings = f"%.{precision}f" % savings_amount
+            msg = f"Not enough enough {asset} funds to cover upcoming Safety Orders. Moving all Flexible Savings to Spot Wallet. Required amount: {rounded_qty} {asset} Flexible Savings: {rounded_savings} {asset}"
             print(msg)
             self.telegram_notifier.enqueue_message(msg)
             quantity = savings_amount
@@ -205,7 +208,7 @@ class SavingsEvaluation:
                 print(msg)
                 self.telegram_notifier.enqueue_message(msg)
 
-            msg = f"Moved {round(quantity, self.MAX_PRECISION)} {asset} to Spot Wallet from Flexible Savings"
+            msg = f"Moved {rounded_qty} {asset} to Spot Wallet from Flexible Savings"
             print(msg)
             self.telegram_notifier.enqueue_message(msg)
             self.__send_savings_summary_msg(asset)
@@ -222,11 +225,13 @@ class SavingsEvaluation:
         Move an amount of the asset from Spot Wallet to Flexible Savings
         """
         print(f"Subscribing {quantity} {asset} to Flexible Savings")
+        precision = self.asset_precision_calculator.get_asset_precision(asset)
+        rounded_qty = f"%.{precision}f" % quantity
 
         # Ensure we are not attempting to subscribe less than the minimum allowed amount
         min_purchase_amount = self.binance_client.get_savings_min_purchase_amount_by_asset(asset)
         if quantity < min_purchase_amount:
-            msg = f"{round(quantity, self.MAX_PRECISION)} {asset} is less than the minimum Flexible Savings purchase amount. Will not rebalance {asset} asset."
+            msg = f"{rounded_qty} {asset} is less than the minimum Flexible Savings purchase amount. Will not rebalance {asset} asset."
             print(msg)
             self.telegram_notifier.enqueue_message(msg)
             return
@@ -247,8 +252,7 @@ class SavingsEvaluation:
                 msg = f"Running in dry-run mode. Will not move any funds"
                 print(msg)
                 self.telegram_notifier.enqueue_message(msg)
-
-            msg = f"Moved {round(quantity, self.MAX_PRECISION)} {asset} from Spot Wallet to Flexible Savings"
+            msg = f"Moved {rounded_qty} {asset} from Spot Wallet to Flexible Savings"
             print(msg)
             self.telegram_notifier.enqueue_message(msg)
             self.__send_savings_summary_msg(asset)
@@ -261,15 +265,14 @@ class SavingsEvaluation:
             self.rebalance_failures.add(asset)
 
     def __send_savings_summary_msg(self, asset, is_rebalanced=True):
-        available_spot = round(self.binance_client.get_available_asset_balance(asset), self.MAX_PRECISION)
-        total_spot = round(self.binance_client.get_total_asset_balance(asset), self.MAX_PRECISION)
-        available_savings = round(self.binance_client.get_available_savings_by_asset(asset), self.MAX_PRECISION)
-        accruing_interest = round(
-            self.binance_client.get_accruing_interest_savings_by_asset(asset), self.MAX_PRECISION
-        )
+        precision = self.asset_precision_calculator.get_asset_precision(asset)
+        available_spot = f"%.{precision}f" % self.binance_client.get_available_asset_balance(asset)
+        total_spot = f"%.{precision}f" % self.binance_client.get_total_asset_balance(asset)
+        available_savings = f"%.{precision}f" % self.binance_client.get_available_savings_by_asset(asset)
+        accruing_interest = f"%.{precision}f" % self.binance_client.get_accruing_interest_savings_by_asset(asset)
         prepend_msg = (
             f"{asset} savings rebalanced." if is_rebalanced == True else f"{asset} savings did not need rebalanced."
         )
-        msg = f"{prepend_msg}\n\nSpot Wallet Available: {available_spot} {asset}\nSpot Wallet Total: {total_spot} {asset}\n\nAvailable Savings: {available_savings} {asset}\nAccruing Interest: {accruing_interest} {asset}"
+        msg = f"{prepend_msg}\n\nSpot Available: {available_spot} {asset}\nSpot Total: {total_spot} {asset}\n\nSavings Available: {available_savings} {asset}\nAccruing Interest: {accruing_interest} {asset}"
         print(msg)
         self.telegram_notifier.enqueue_message(msg)
