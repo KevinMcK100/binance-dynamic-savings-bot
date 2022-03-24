@@ -70,6 +70,7 @@ class SavingsEvaluation:
     def __reevaluate_symbol(self, symbol):
         self.telegram_notifier.enqueue_message(f"Reevaluating spot balance for {symbol}")
         current_deal_orders = self.__get_current_deal_orders_by_symbol(symbol)
+        self.__log_orders(current_deal_orders, "Current Deal Orders")
         if self.__is_safety_order_open(current_deal_orders):
             next_so = self.__calculate_next_order_value(symbol, current_deal_orders)
             quote_asset = self.binance_client.get_quote_asset_from_symbol(symbol)
@@ -83,6 +84,12 @@ class SavingsEvaluation:
             msg = f"Safety order not yet open for {symbol}"
             print(msg)
             self.telegram_notifier.enqueue_message(msg)
+
+    def __log_orders(orders: list, label: str):
+        print(f"\n- -{label} START - -")
+        for order in orders:
+            print(order)
+        print(f"- -{label} END - -\n")
 
     def __is_safety_order_open(self, current_deal_orders):
         """
