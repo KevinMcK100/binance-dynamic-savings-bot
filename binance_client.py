@@ -2,6 +2,7 @@ import re
 from typing import List
 from binance.client import Client
 from cachetools import cached, TTLCache
+from order import Order
 
 
 class BinanceClient:
@@ -42,12 +43,22 @@ class BinanceClient:
     # ---------------------------------------------------------------------------- #
 
     def get_symbols_by_client_order_id(self, order_id_regex: str) -> List:
-        return {
-            ord["symbol"] for ord in self.client.get_open_orders() if re.match(order_id_regex, ord["clientOrderId"])
-        }
+        open_orders = [self.__map_order(ord) for ord in self.client.get_open_orders()]
+        return [ord.symbol for ord in open_orders if re.match(order_id_regex, ord.order_id)]
 
-    def get_all_orders_by_symbol(self, symbol):
-        return self.client.get_all_orders(symbol=symbol)
+    def get_all_orders_by_symbol(self, symbol) -> List[Order]:
+        return [self.__map_order(ord) for ord in self.client.get_all_orders(symbol=symbol)]
+
+    def __map_order(self, order) -> Order:
+        return Order(
+            order["symbol"],
+            float(order["price"]),
+            float(order["origQty"]),
+            order["clientOrderId"],
+            order["status"],
+            order["side"],
+            order["time"],
+        )
 
     # ---------------------------------------------------------------------------- #
     #                               Account Endpoints                              #

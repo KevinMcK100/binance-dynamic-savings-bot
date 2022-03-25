@@ -2,6 +2,7 @@ import logging, threading
 from asset_precision_calculator import AssetPrecisionCalculator
 from assets_dataframe import AssetsDataframe
 from binance_client import BinanceClient
+from order import Order
 from telegram_notifier import TelegramNotifier
 from typing import Any, Dict, List
 
@@ -39,10 +40,10 @@ class SavingsEvaluation:
         self.rebalance_failures = set()
         self.rebalance_mutex = threading.Semaphore(1)
 
-    def reevaluate_symbol(self, symbol):
+    def reevaluate_symbol(self, symbol, order_event: Order = None):
         try:
             self.rebalance_mutex.acquire()
-            self.__reevaluate_symbol(symbol)
+            self.__reevaluate_symbol(symbol, order_event)
         except Exception as ex:
             msg = f"Unexpected error occurred while rebalancing for {symbol}. Will not retry. See logs for more details. Exception: {ex}"
             print(msg)
@@ -67,14 +68,16 @@ class SavingsEvaluation:
     #                     Reevaluate savings for single symbol                     #
     # ---------------------------------------------------------------------------- #
 
-    def __reevaluate_symbol(self, symbol):
+    def __reevaluate_symbol(self, symbol, order_event: Order = None):
         current_deal_orders = self.__get_current_deal_orders_by_symbol(symbol)
+        if order_event is not None:
+            current_deal_orders = self.__upsert_order_to_orders(order_event, current_deal_orders)
         self.__log_orders(current_deal_orders, "Current Deal Orders")
         if self.__is_safety_order_open(current_deal_orders):
             self.telegram_notifier.enqueue_message(f"Reevaluating spot balance for {symbol}")
-            next_so = self.__calculate_next_order_value(symbol, current_deal_orders)
+            next_so_val = self.__calculate_next_order_value(symbol, current_deal_orders)
             quote_asset = self.binance_client.get_quote_asset_from_symbol(symbol)
-            self.assets_dataframe.upsert(symbol, next_so, quote_asset)
+            self.assets_dataframe.upsert(symbol, next_so_val, quote_asset)
             if self.__is_rebalance_required(quote_asset):
                 self.__rebalance_quote_assets(quote_asset=quote_asset)
             else:
@@ -85,20 +88,32 @@ class SavingsEvaluation:
             print(msg)
             self.telegram_notifier.enqueue_message(msg)
 
-    def __log_orders(self, orders: list, label: str):
+    def __upsert_order_to_orders(self, order: Order, orders: List[Order]):
+        """
+        Sometimes when we fetch the list of orders from Binance it will return the new order related
+        to the order event, other times the new order is missing from the list. To work around this
+        we pass the "order event" order and only append it to the list if it wasn't returned in the
+        call to Binance fetch all orders.
+        """
+        if order.get_deal_id() == orders[0].get_deal_id() and order.order_id not in [ord.order_id for ord in orders]:
+            print(f"Order {order.order_id} was not in list of orders. Appending order event to list. Order: {order}")
+            return self.__sort_orders_by_timestamp(orders.append(order))
+        return orders
+
+    def __log_orders(self, orders: List[Order], label: str):
         print(f"\n- -{label} START - -")
         for order in orders:
             print(order)
         print(f"- -{label} END - -\n")
 
-    def __is_safety_order_open(self, current_deal_orders):
+    def __is_safety_order_open(self, current_deal_orders: List[Order]):
         """
         Ensures we have at least one Base Order (FILLED) and one open Safety Order (NEW)
         """
-        statuses = set([ord["status"] for ord in current_deal_orders])
+        statuses = [ord.status for ord in current_deal_orders]
         return "FILLED" in statuses and "NEW" in statuses
 
-    def __is_rebalance_required(self, quote_asset):
+    def __is_rebalance_required(self, quote_asset: str):
         orders_sum = self.assets_dataframe.sum_next_orders(quote_asset)
         orders_max = self.assets_dataframe.max_next_orders(quote_asset)
         min_balance_required = max(orders_sum * 0.5, orders_max)
@@ -131,40 +146,28 @@ class SavingsEvaluation:
     def __filter_symbols_by_quote_asset(self, symbols, quote_asset):
         return [sym for sym in symbols if str(sym).endswith(quote_asset)]
 
-    def __get_current_deal_orders_by_symbol(self, symbol) -> List[Dict[str, Any]]:
+    def __get_current_deal_orders_by_symbol(self, symbol: str) -> List[Order]:
         orders = self.binance_client.get_all_orders_by_symbol(symbol)
-        filtered_orders = self.__filter_orders(orders, ["FILLED", "NEW"], ["BUY"])
-        filtered_orders.sort(key=lambda x: x.get("timestamp"), reverse=True)
+        filtered_orders = [ord for ord in orders if (ord.is_new_or_filled_order() and ord.is_buy_order())]
+        sorted_filtered_orders = self.__sort_orders_by_timestamp(filtered_orders)
         # Extract the 3Commas deal ID from the client order ID
-        deal_id = str(filtered_orders[0]["order_id"]).split("_")[-2]
+        deal_id = sorted_filtered_orders[0].get_deal_id()
         # Get all orders associated with the most recent deal
-        return [ord for ord in filtered_orders if deal_id in ord["order_id"]]
+        return [ord for ord in sorted_filtered_orders if deal_id in ord.order_id]
 
-    def __calculate_next_order_value(self, symbol, current_deal_orders) -> float:
+    def __sort_orders_by_timestamp(self, orders: List[Order]) -> List[Order]:
+        return sorted(orders, key=lambda x: x.timestamp, reverse=True)
+
+    def __calculate_next_order_value(self, symbol: str, current_deal_orders: List[Order]) -> float:
         step_size = self.binance_client.get_symbol_step_size(symbol)
-        open_so = [ord for ord in current_deal_orders if ord["status"] == "NEW"][0]
+        open_so = [ord for ord in current_deal_orders if ord.is_new_order()][0]
         next_so_cost = self.__calculate_next_so_cost(open_so, step_size)
         print(f"Next safety order cost: {next_so_cost}")
         return next_so_cost
 
-    def __filter_orders(self, orders, statuses, sides):
-        return [
-            {
-                "price": ord["price"],
-                "quote_qty": round(float(ord["origQty"]) * float(ord["price"]), 2),
-                "qty": ord["origQty"],
-                "order_id": ord["clientOrderId"],
-                "timestamp": ord["time"],
-                "status": ord["status"],
-                "side": ord["side"],
-            }
-            for ord in orders
-            if (ord["status"] in statuses and ord["side"] in sides)
-        ]
-
-    def __calculate_next_so_cost(self, open_so, step_size):
-        step_size_buffer = float(open_so["price"]) * float(step_size)
-        return float(open_so["quote_qty"]) * self.dca_volume_scale + step_size_buffer
+    def __calculate_next_so_cost(self, open_so: Order, step_size: float):
+        step_size_buffer = float(open_so.price) * float(step_size)
+        return float(open_so.quote_qty) * self.dca_volume_scale + step_size_buffer
 
     # ---------------------------------------------------------------------------- #
     #                           Preform rebalance savings                          #
