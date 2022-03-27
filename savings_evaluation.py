@@ -48,9 +48,8 @@ class SavingsEvaluation:
             self.__reevaluate_symbol(symbol, order_event)
         except Exception as ex:
             msg = f"Unexpected error occurred while rebalancing for {symbol}. Will not retry. See logs for more details. Exception: {ex}"
-            print(msg)
             self.telegram_notifier.enqueue_message(msg)
-            logging.exception(ex)
+            logging.exception(msg)
         finally:
             self.rebalance_mutex.release()
 
@@ -60,9 +59,8 @@ class SavingsEvaluation:
             self.__rebalance_quote_assets()
         except Exception as ex:
             msg = f"Unexpected error occurred while rebalancing all assets. Will not retry. See logs for more details. Exception: {ex}"
-            print(msg)
             self.telegram_notifier.enqueue_message(msg)
-            logging.exception(ex)
+            logging.exception(msg)
         finally:
             self.rebalance_mutex.release()
 
@@ -87,7 +85,7 @@ class SavingsEvaluation:
                 self.__send_savings_summary_msg(quote_asset, is_rebalanced=False)
         else:
             msg = f"Evaluated current deal orders but safety order is not yet open for {symbol}"
-            print(msg)
+            logging.warn(msg)
             self.telegram_notifier.enqueue_message(msg)
 
     def __upsert_order_to_orders(self, order: Order, orders: List[Order]):
@@ -98,16 +96,18 @@ class SavingsEvaluation:
         call to Binance fetch all orders.
         """
         if order.get_deal_id() == orders[0].get_deal_id() and order.order_id not in [ord.order_id for ord in orders]:
-            print(f"Order {order.order_id} was not in list of orders. Appending order event to list. Order: {order}")
+            logging.info(
+                f"Order {order.order_id} was not in list of orders. Appending order event to list. Order: {order}"
+            )
             orders.append(order)
             return self.__sort_orders_by_timestamp(orders)
         return orders
 
     def __log_orders(self, orders: List[Order], label: str):
-        print(f"\n- -{label} START - -")
+        logging.info(f"\n- -{label}: START ORDER LOGGING- -")
         for order in orders:
-            print(order)
-        print(f"- -{label} END - -\n")
+            logging.info(order)
+        logging.info(f"- -{label}: END ORDER LOGGING- -\n")
 
     def __is_safety_order_open(self, current_deal_orders: List[Order]):
         """
@@ -165,7 +165,7 @@ class SavingsEvaluation:
         step_size = self.binance_client.get_symbol_step_size(symbol)
         open_so = [ord for ord in current_deal_orders if ord.is_new_order()][0]
         next_so_cost = self.__calculate_next_so_cost(open_so, step_size)
-        print(f"Next safety order cost: {next_so_cost}")
+        logging.info(f"Next safety order cost: {next_so_cost}")
         return next_so_cost
 
     def __calculate_next_so_cost(self, open_so: Order, step_size: float):
@@ -184,14 +184,15 @@ class SavingsEvaluation:
         elif rebalance_amount > 0:
             self.__subscribe_asset_to_savings(quote_asset, rebalance_amount)
         else:
-            print("No rebalancing required")
-            self.telegram_notifier.enqueue_message(f"No rebalancing required")
+            msg = "No rebalancing required"
+            logging.info(msg)
+            self.telegram_notifier.enqueue_message(msg)
 
     def __redeem_asset_from_savings(self, asset, quantity):
         """
         Move an amount of the asset from Flexible Savings to Spot Wallet
         """
-        print(f"Redeeming {quantity} {asset} to Spot Wallet")
+        logging.info(f"Redeeming {quantity} {asset} to Spot Wallet")
         precision = self.asset_precision_calculator.get_asset_precision(asset)
         rounded_qty = f"%.{precision}f" % quantity
 
@@ -200,14 +201,14 @@ class SavingsEvaluation:
         if savings_amount < quantity:
             rounded_savings = f"%.{precision}f" % savings_amount
             msg = f"Not enough enough {asset} funds to cover upcoming Safety Orders. Moving all Flexible Savings to Spot Wallet. Required amount: {rounded_qty} {asset} Flexible Savings: {rounded_savings} {asset}"
-            print(msg)
+            logging.warn(msg)
             self.telegram_notifier.enqueue_message(msg)
             quantity = savings_amount
 
         # Check if we can redeem from the asset, if not, add it as a failure for retrying later
         if not self.binance_client.can_redeem_savings_asset(asset):
             msg = f"{asset} is currently unavailable to redeem from Flexible Savings. Will retry when it becomes available"
-            print(msg)
+            logging.warn(msg)
             self.telegram_notifier.enqueue_message(msg)
             self.rebalance_failures.add(asset)
             return
@@ -218,16 +219,17 @@ class SavingsEvaluation:
                 self.binance_client.redeem_from_savings(asset, quantity)
             else:
                 msg = f"Running in dry-run mode. Will not move any funds"
-                print(msg)
+                logging.info(msg)
                 self.telegram_notifier.enqueue_message(msg)
 
             msg = f"Moved {rounded_qty} {asset} to Spot Wallet from Flexible Savings"
-            print(msg)
+            logging.info(msg)
             self.telegram_notifier.enqueue_message(msg)
             self.__send_savings_summary_msg(asset)
         except Exception as err:
-            logging.exception(f"Exception occurred when attempting to rebalance savings for {asset}: {err}")
-            print(f"Adding failed asset {asset} to failure set for retrying...")
+            logging.exception(
+                f"Exception occurred when attempting to rebalance savings for {asset}. Adding to failure set for retrying. Error: {err}"
+            )
             self.telegram_notifier.enqueue_message(
                 f"Error occurred when rebalancing asset {asset}. Will retry. See logs for details"
             )
@@ -237,7 +239,7 @@ class SavingsEvaluation:
         """
         Move an amount of the asset from Spot Wallet to Flexible Savings
         """
-        print(f"Subscribing {quantity} {asset} to Flexible Savings")
+        logging.info(f"Subscribing {quantity} {asset} to Flexible Savings")
         precision = self.asset_precision_calculator.get_asset_precision(asset)
         rounded_qty = f"%.{precision}f" % quantity
 
@@ -245,14 +247,14 @@ class SavingsEvaluation:
         min_purchase_amount = self.binance_client.get_savings_min_purchase_amount_by_asset(asset)
         if quantity < min_purchase_amount:
             msg = f"{rounded_qty} {asset} is less than the minimum Flexible Savings purchase amount. Will not rebalance {asset} asset."
-            print(msg)
+            logging.warn(msg)
             self.telegram_notifier.enqueue_message(msg)
             return
 
         # Check if we can subscribe to the asset, if not, add it as a failure for retrying later
         if not self.binance_client.can_purchase_savings_asset(asset):
             msg = f"{asset} is currently unavailable to purchase in Flexible Savings. Will retry when it becomes available"
-            print(msg)
+            logging.warn(msg)
             self.telegram_notifier.enqueue_message(msg)
             self.rebalance_failures.add(asset)
             return
@@ -263,15 +265,16 @@ class SavingsEvaluation:
                 self.binance_client.subscribe_to_savings(asset, quantity)
             else:
                 msg = f"Running in dry-run mode. Will not move any funds"
-                print(msg)
+                logging.info(msg)
                 self.telegram_notifier.enqueue_message(msg)
             msg = f"Moved {rounded_qty} {asset} from Spot Wallet to Flexible Savings"
-            print(msg)
+            logging.info(msg)
             self.telegram_notifier.enqueue_message(msg)
             self.__send_savings_summary_msg(asset)
         except Exception as err:
-            logging.exception(f"Exception occurred when attempting to rebalance savings for {asset}: {err}")
-            print(f"Adding failed asset {asset} to failure set for retrying...")
+            logging.exception(
+                f"Exception occurred when attempting to rebalance savings for {asset}. Adding to failure set for retrying. Error: {err}"
+            )
             self.telegram_notifier.enqueue_message(
                 f"Error occurred when rebalancing asset {asset}. Will attempt to retry. See logs for details"
             )
@@ -287,5 +290,5 @@ class SavingsEvaluation:
             f"{asset} savings rebalanced." if is_rebalanced == True else f"{asset} savings did not need rebalanced."
         )
         msg = f"{prepend_msg}\n\nSpot Available: {available_spot} {asset}\nSpot Total: {total_spot} {asset}\n\nSavings Available: {available_savings} {asset}\nAccruing Interest: {accruing_interest} {asset}"
-        print(msg)
+        logging.info(msg)
         self.telegram_notifier.enqueue_message(msg)

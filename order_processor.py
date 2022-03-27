@@ -1,4 +1,4 @@
-import re
+import logging, re
 from binance_client import BinanceClient
 from order import Order
 from savings_evaluation import SavingsEvaluation
@@ -49,6 +49,6 @@ class OrderProcessor:
     # ---------------------------------------------------------------------------- #
     def __log_order_event(self, prepend, ord: Order, verbose: bool = False):
         log = f"{prepend}\tSymbol: {ord.symbol} \n\tSide: {ord.side} \n\tQuantity: {ord.quantity} \n\tPrice: {ord.price} \n\tStatus: {ord.status}\n\tOrder ID: {ord.order_id}"
-        print(log)
+        logging.info(log)
         msg = f"{prepend}Symbol: {ord.symbol} \nSide: {ord.side} \nQuantity: {ord.quantity} \nPrice: {ord.price} \nStatus: {ord.status}\nOrder ID: {ord.order_id}"
         self.telegram_notifier.enqueue_message(msg, verbose)

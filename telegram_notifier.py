@@ -29,7 +29,7 @@ class TelegramNotifier:
         Sets the context and starts polling the queue for messages to send to Telegram.
         """
         self.context = context
-        message_queue_worker = Thread(target=self.__read_message_queue)
+        message_queue_worker = Thread(target=self.__read_message_queue, name="TelegramNotifierThread")
         message_queue_worker.start()
 
     def enqueue_message(self, message: str, is_verbose: bool = False):
@@ -65,16 +65,16 @@ class TelegramNotifier:
         message = queue_item[0]
         is_verbose = queue_item[1]
         if self.context is None or self.chat_id is None:
-            print(f"Telegram bot not yet started. Couldn't send message: {message}")
+            logging.error(f"Telegram bot not yet started. Couldn't send message: {message}")
         elif self.verbose == True or is_verbose == False:
             try:
                 self.context.bot.send_message(chat_id=self.chat_id, text=message, parse_mode="HTML")
             except RetryAfter as retry_ex:
                 retry_after = retry_ex.retry_after
-                print(f"Received rate limit error. Retrying after {retry_after} seconds.")
+                logging.warn(f"Received rate limit error. Retrying after {retry_after} seconds.")
                 self.message_queue.appendleft(queue_item)
                 sleep(retry_after)
             except Exception as telegram_ex:
-                msg = f"Unexpected exception sending message to Telegram. Will not retry sending message. Error: {telegram_ex}"
-                logging.exception(msg)
-                print(msg)
+                logging.exception(
+                    f"Unexpected exception sending message to Telegram. Will not retry sending message. Error: {telegram_ex}"
+                )

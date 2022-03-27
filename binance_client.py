@@ -1,8 +1,8 @@
-import re
-from typing import List
+import logging, re
 from binance.client import Client
 from cachetools import cached, TTLCache
 from order import Order
+from typing import List
 
 
 class BinanceClient:
@@ -14,11 +14,11 @@ class BinanceClient:
     # ---------------------------------------------------------------------------- #
 
     def get_base_asset_from_symbol(self, symbol) -> str:
-        print(f"Attempting to fetch {symbol} base asset from cache")
+        logging.debug(f"Attempting to fetch {symbol} base asset from cache")
         return str(self.__get_symbol_info(symbol)["baseAsset"])
 
     def get_quote_asset_from_symbol(self, symbol) -> str:
-        print(f"Attempting to fetch {symbol} quote asset from cache")
+        logging.debug(f"Attempting to fetch {symbol} quote asset from cache")
         return str(self.__get_symbol_info(symbol)["quoteAsset"])
 
     def get_quote_precision(self, symbol) -> int:
@@ -35,7 +35,7 @@ class BinanceClient:
 
     @cached(cache=TTLCache(maxsize=100, ttl=7 * 24 * 60 * 60))
     def __get_symbol_info(self, symbol):
-        print(f"No cache entry for {symbol}. Fetching from Binance")
+        logging.debug(f"No cache entry for {symbol}. Fetching from Binance")
         return self.client.get_symbol_info(symbol)
 
     # ---------------------------------------------------------------------------- #

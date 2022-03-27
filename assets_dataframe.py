@@ -22,6 +22,3 @@ class AssetsDataframe:
 
     def max_next_orders(self, quote_asset):
         return self.df.loc[self.df.quote_asset == quote_asset, self.NEXT_SO_COLUMN].max()
-
-    def print_df(self):
-        print(f"Assets Dataframe\n {self.df}")

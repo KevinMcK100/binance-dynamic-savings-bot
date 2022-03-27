@@ -1,3 +1,4 @@
+import logging
 from rebalance_savings_scheduler import RebalanceSavingsScheduler
 from savings_evaluation import SavingsEvaluation
 from telegram.ext import Updater, CommandHandler
@@ -68,14 +69,17 @@ class TelegramHandler:
         if self.bot_started:
             self.savings_evaluation.rebalance_all_symbols()
         else:
-            print("Bot is not started. Execute /start command from Telegram")
+            logging.warn("Bot is not started. Execute /start command from Telegram")
 
     def __scheduler(self, update, context):
         if self.bot_started:
             next_run_info = self.rebalance_savings_scheduler.send_scheduler_summary()
             self.telegram_notifier.enqueue_message(next_run_info)
         else:
-            print("Bot is not started. Execute /start command from Telegram")
+            logging.warn("Bot is not started. Execute /start command from Telegram")
 
     def __test(self, update, context):
-        self.savings_evaluation.reevaluate_symbol("LUNAUSDT")
+        if self.bot_started:
+            self.savings_evaluation.reevaluate_symbol("LUNAUSDT")
+        else:
+            logging.warn("Bot is not started. Execute /start command from Telegram")

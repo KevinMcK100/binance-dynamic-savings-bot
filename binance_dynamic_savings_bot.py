@@ -23,7 +23,7 @@ from telegram_notifier import TelegramNotifier
 logging.basicConfig(
     level=logging.INFO,
     filename=os.path.basename(__file__) + ".log",
-    format="{asctime} [{levelname:8}] {process} {thread} {module}: {message}",
+    format="{asctime} [{levelname}] {threadName} | {module}.{funcName}:{lineno} :: {message}",
     style="{",
 )
 

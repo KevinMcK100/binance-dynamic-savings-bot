@@ -1,10 +1,8 @@
-import pytz
+import logging, pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 from binance import ThreadedWebsocketManager
-import logging
 from order import Order
 from order_processor import OrderProcessor
-from threading import Thread
 
 
 class OrderStreamReader:
@@ -14,7 +12,7 @@ class OrderStreamReader:
         self.order_processor = order_processor
 
     def start_order_stream(self):
-        print("Starting order stream reader")
+        logging.info("Starting order stream reader")
         self.twm = ThreadedWebsocketManager(api_key=self.api_key, api_secret=self.secret_key)
         self.twm.start()
         self.twm.start_user_socket(callback=self.__handle_order_event)
@@ -28,7 +26,7 @@ class OrderStreamReader:
     def __handle_order_event(self, order_event):
         if order_event["e"] == "executionReport":
             order = self.__map_order(order_event)
-            print(f"Order event received: {order}")
+            logging.info(f"Order event received: {order}")
             self.order_processor.process_order(order)
 
     def __map_order(self, order):
@@ -37,4 +35,4 @@ class OrderStreamReader:
         )
 
     def __do_health_check(self):
-        print(f"ThreadedWebsocketManager health check: {self.twm.is_alive()}")
+        logging.info(f"ThreadedWebsocketManager health check: {self.twm.is_alive()}")

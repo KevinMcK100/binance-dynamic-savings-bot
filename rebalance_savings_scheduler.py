@@ -1,4 +1,4 @@
-import pytz
+import logging, pytz
 import datetime as dt
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.job import Job
@@ -26,7 +26,7 @@ class RebalanceSavingsScheduler:
             self.savings_evaluation.rebalance_all_symbols, "cron", hour=self.schedule_hour, minute=self.schedule_min
         )
         self.scheduler.start()
-        print(f"Started Rebalance Savings Scheduler")
+        logging.info("Started Rebalance Savings Scheduler")
 
     def send_scheduler_summary(self) -> str:
         job_messages = ["Rebalancing scheduled job is not started!"]
@@ -41,5 +41,5 @@ class RebalanceSavingsScheduler:
                 delta = next_run - now
                 fmt_delta = str(delta).split(".")[0]
                 job_messages.append(f"Savings rebalance scheduled for {time} {zone}.\n\nRuns in {fmt_delta} from now")
+                logging.info(f"Job summary: {job}")
         [self.telegram_notifier.enqueue_message(msg) for msg in job_messages]
-        self.scheduler.print_jobs()
