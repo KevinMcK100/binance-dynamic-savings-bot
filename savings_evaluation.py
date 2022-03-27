@@ -40,7 +40,7 @@ class SavingsEvaluation:
         self.rebalance_failures = set()
         self.rebalance_mutex = threading.Semaphore(1)
 
-    def reevaluate_symbol(self, symbol, order_event: Order = None):
+    def reevaluate_symbol(self, symbol: str, order_event: Order = None):
         try:
             self.rebalance_mutex.acquire()
             self.__reevaluate_symbol(symbol, order_event)
@@ -97,7 +97,8 @@ class SavingsEvaluation:
         """
         if order.get_deal_id() == orders[0].get_deal_id() and order.order_id not in [ord.order_id for ord in orders]:
             print(f"Order {order.order_id} was not in list of orders. Appending order event to list. Order: {order}")
-            return self.__sort_orders_by_timestamp(orders.append(order))
+            orders.append(order)
+            return self.__sort_orders_by_timestamp(orders)
         return orders
 
     def __log_orders(self, orders: List[Order], label: str):
