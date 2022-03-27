@@ -8,6 +8,7 @@ binance:
 dca_bot:
   order_id_regex: "^.*_deal_.*$" # Pattern to identify a 3Commas client_order_id in Binance
   dca_volume_scale: 1.05 # Safety Order Volume Scale in 3Commas. Used to predetermine how much quote asset will be required for future orders. Should be set to highest value used across all your 3Commas bots
+  quote_coverage: 0.5 # Percentage expressed as a decimal (range 0-1). Determines the minimum coverage for quote assets in spot wallet. Eg. For 5 bots running on USDT, if all upcoming orders will require 100 USDT, then bot will automatically redeem from savings when available spot USDT dips below 50 USDT
   rebalance_time: # UTC time each day to rebalance funds between spot and savings. Binance cut off window is 23:50 UTC each day. Recommended to rebalance just before that
     hour: 23
     minute: 40

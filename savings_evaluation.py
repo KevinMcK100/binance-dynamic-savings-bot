@@ -4,7 +4,7 @@ from assets_dataframe import AssetsDataframe
 from binance_client import BinanceClient
 from order import Order
 from telegram_notifier import TelegramNotifier
-from typing import Any, Dict, List
+from typing import List
 
 
 class SavingsEvaluation:
@@ -26,6 +26,7 @@ class SavingsEvaluation:
         binance_client: BinanceClient,
         telegram_notifier: TelegramNotifier,
         dca_volume_scale: float,
+        quote_coverage: float,
         assets_dataframe: AssetsDataframe,
         asset_precision_calculator: AssetPrecisionCalculator,
         dry_run: bool = False,
@@ -34,6 +35,7 @@ class SavingsEvaluation:
         self.binance_client = binance_client
         self.telegram_notifier = telegram_notifier
         self.dca_volume_scale = dca_volume_scale
+        self.quote_coverage = quote_coverage
         self.assets_dataframe = assets_dataframe
         self.asset_precision_calculator = asset_precision_calculator
         self.dry_run = dry_run
@@ -117,7 +119,7 @@ class SavingsEvaluation:
     def __is_rebalance_required(self, quote_asset: str):
         orders_sum = self.assets_dataframe.sum_next_orders(quote_asset)
         orders_max = self.assets_dataframe.max_next_orders(quote_asset)
-        min_balance_required = max(orders_sum * 0.5, orders_max)
+        min_balance_required = max(orders_sum * self.quote_coverage, orders_max)
         current_spot_balance = self.binance_client.get_available_asset_balance(quote_asset)
         return current_spot_balance < min_balance_required
 

@@ -51,6 +51,7 @@ def main():
         binance_client,
         telegram_notifier,
         dca_bot_config["dca_volume_scale"],
+        dca_bot_config["quote_coverage"],
         assets_dataframe,
         asset_precision_calculator,
         dca_bot_config["dry_run"],
