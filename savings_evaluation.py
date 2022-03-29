@@ -79,7 +79,7 @@ class SavingsEvaluation:
             quote_asset = self.binance_client.get_quote_asset_from_symbol(symbol)
             self.assets_dataframe.upsert(symbol, next_so_val, quote_asset)
             if self.__is_rebalance_required(quote_asset):
-                self.__rebalance_quote_assets(quote_asset=quote_asset)
+                self.__rebalance_quote_assets([quote_asset])
             else:
                 quote_asset = self.binance_client.get_quote_asset_from_symbol(symbol)
                 self.__send_savings_summary_msg(quote_asset, is_rebalanced=False)
