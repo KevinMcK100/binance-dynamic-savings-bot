@@ -9,6 +9,10 @@ CURRENT_DIR=$(pwd)
 UserBot="$USER"
 PATH=$PATH:/home/${UserBot}/.local/bin;export $PATH
 
+# Pull latest code from git repo
+cd ${INSTALL_DIR}
+git pull origin master
+
 # Install dependencies in virtual environment
 cd ${INSTALL_DIR}/..
 if [ ! -d venv ]; then

@@ -162,8 +162,28 @@ class SavingsEvaluation:
         return sorted(orders, key=lambda x: x.timestamp, reverse=True)
 
     def __calculate_next_order_value(self, symbol: str, current_deal_orders: List[Order]) -> float:
+        """
+        Sometimes orders may change on Binance while this code is executing for another symbol.
+        Example, if during reevaluation of a symbol another symbol also hits TP meaning its existing orders are cancelled
+        If this happens we will just use the current order size in current_deal_orders
+        """
+        open_so: Order = None
+        try:
+            open_so = [ord for ord in current_deal_orders if ord.is_new_order()][0]
+        except IndexError as err:
+            msg = f"Error occurred fetching orders for {symbol}. Most likely the symbol has hit take profit during this reevaluation. Correct calculation should happen on subsequent evaluation. See logs for more details."
+            self.telegram_notifier.enqueue_message(msg)
+            if len(current_deal_orders) > 0:
+                open_so = current_deal_orders[0]
+                logging.warn(
+                    f"NEW order not available for {symbol}. Using order {open_so} to calculate next safety order instead. Error: {err}"
+                )
+            else:
+                logging.error(
+                    f"Unable to fetch any open orders for symbol {symbol}. Skipping safety order calculation and returning 0.0. Error: {err}"
+                )
+                return 0.0
         step_size = self.binance_client.get_symbol_step_size(symbol)
-        open_so = [ord for ord in current_deal_orders if ord.is_new_order()][0]
         next_so_cost = self.__calculate_next_so_cost(open_so, step_size)
         logging.info(f"Next safety order cost: {next_so_cost}")
         return next_so_cost
