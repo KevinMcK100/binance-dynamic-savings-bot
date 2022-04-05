@@ -164,8 +164,8 @@ class SavingsEvaluation:
     def __calculate_next_order_value(self, symbol: str, current_deal_orders: List[Order]) -> float:
         """
         Sometimes orders may change on Binance while this code is executing for another symbol.
-        Example, if during reevaluation of a symbol another symbol also hits TP meaning its existing orders are cancelled
-        If this happens we will just use the current order size in current_deal_orders
+        For example, if during reevaluation of a symbol another symbol also hits TP meaning its existing orders are cancelled.
+        If this happens we will just use the current order size in current_deal_orders, or failing that return 0.0 for next order size.
         """
         open_so: Order = None
         try:
