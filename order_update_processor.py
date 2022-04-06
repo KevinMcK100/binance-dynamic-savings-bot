@@ -5,7 +5,7 @@ from savings_evaluation import SavingsEvaluation
 from telegram_notifier import TelegramNotifier
 
 
-class OrderProcessor:
+class OrderUpdateProcessor:
     def __init__(
         self,
         order_id_regex: str,

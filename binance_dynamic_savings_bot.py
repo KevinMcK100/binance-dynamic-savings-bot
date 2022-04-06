@@ -10,10 +10,11 @@ Start bot using /start. This triggers a reevaluation of current savings and star
 import logging, os, yaml
 from asset_precision_calculator import AssetPrecisionCalculator
 from assets_dataframe import AssetsDataframe
+from balance_update_processor import BalanceUpdateProcessor
 from binance_client import BinanceClient
 from failure_handler import FailureHandler
-from order_processor import OrderProcessor
-from order_stream_reader import OrderStreamReader
+from order_update_processor import OrderUpdateProcessor
+from websocket_stream_reader import WebsocketStreamReader
 from rebalance_savings_scheduler import RebalanceSavingsScheduler
 from savings_evaluation import SavingsEvaluation
 from telegram_handler import TelegramHandler
@@ -70,12 +71,16 @@ def main():
         rebalance_savings_scheduler,
         dca_bot_config["dry_run"],
     )
-
-    order_processor = OrderProcessor(
+    balance_update_processor = BalanceUpdateProcessor(
+        dca_bot_config["order_id_regex"], binance_client, savings_evaluation
+    )
+    order_processor = OrderUpdateProcessor(
         dca_bot_config["order_id_regex"], binance_client, savings_evaluation, telegram_notifier
     )
-    order_stream_reader = OrderStreamReader(binance_config["api_key"], binance_config["secret_key"], order_processor)
-    order_stream_reader.start_order_stream()
+    websocket_stream_reader = WebsocketStreamReader(
+        binance_config["api_key"], binance_config["secret_key"], balance_update_processor, order_processor
+    )
+    websocket_stream_reader.start_order_stream()
 
     # Blocking call. Signals only work in main thread so this must final call from main
     telegram_handler.run_telegram_bot()

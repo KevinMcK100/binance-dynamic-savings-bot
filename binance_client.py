@@ -94,24 +94,48 @@ class BinanceClient:
     # ------------------------- Savings product endpoints ------------------------ #
 
     @cached(cache=TTLCache(maxsize=100, ttl=24 * 60 * 60))
-    def get_product_id(self, asset) -> bool:
-        return self.__get_savings_product_by_asset(asset)["productId"]
+    def get_product_id(self, asset) -> str:
+        savings_product = self.__get_savings_product_by_asset(asset)
+        if savings_product is None:
+            raise RuntimeError(f"Could not get product ID for savings product for asset {asset}")
+        return savings_product["productId"]
 
     def can_purchase_savings_asset(self, asset) -> bool:
         savings_product = self.__get_savings_product_by_asset(asset)
-        return bool(savings_product["canPurchase"]) and bool(savings_product["status"] == "PURCHASING")
+        return (
+            savings_product is not None
+            and bool(savings_product["canPurchase"])
+            and savings_product["status"] == "PURCHASING"
+        )
 
     def can_redeem_savings_asset(self, asset) -> bool:
         savings_product = self.__get_savings_product_by_asset(asset)
-        return bool(savings_product["canRedeem"]) and bool(savings_product["status"] == "PURCHASING")
+        return (
+            savings_product is not None
+            and bool(savings_product["canRedeem"])
+            and savings_product["status"] == "PURCHASING"
+        )
 
     @cached(cache=TTLCache(maxsize=100, ttl=24 * 60 * 60))
     def get_savings_min_purchase_amount_by_asset(self, asset) -> float:
-        return float(self.__get_savings_product_by_asset(asset)["minPurchaseAmount"])
+        savings_product = self.__get_savings_product_by_asset(asset)
+        if savings_product is not None:
+            return float(savings_product["minPurchaseAmount"])
+        else:
+            return 0.0
 
     @cached(cache=TTLCache(maxsize=100, ttl=5))
     def __get_savings_product_by_asset(self, asset):
-        return [x for x in self.client.get_lending_product_list() if x["asset"] == asset][0]
+        page_size, page_count = 100, 1
+        while True:
+            product_list = self.client.get_lending_product_list(size=page_size, current=page_count)
+            asset_product = [x for x in product_list if x["asset"] == asset]
+            if len(asset_product) > 0:
+                return asset_product[0]
+            elif len(product_list) < page_size:
+                logging.warn(f"Couldn't get lending product for asset {asset} from lending product list")
+                return None
+            page_count = page_count + 1
 
     # ----------------------- Savings rebalancing endpoints ---------------------- #
 

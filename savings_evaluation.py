@@ -64,6 +64,19 @@ class SavingsEvaluation:
         finally:
             self.rebalance_mutex.release()
 
+    def send_savings_summary_msg(self, asset, is_rebalanced=True):
+        precision = self.asset_precision_calculator.get_asset_precision(asset)
+        available_spot = f"%.{precision}f" % self.binance_client.get_available_asset_balance(asset)
+        total_spot = f"%.{precision}f" % self.binance_client.get_total_asset_balance(asset)
+        available_savings = f"%.{precision}f" % self.binance_client.get_available_savings_by_asset(asset)
+        accruing_interest = f"%.{precision}f" % self.binance_client.get_accruing_interest_savings_by_asset(asset)
+        prepend_msg = (
+            f"{asset} savings rebalanced." if is_rebalanced == True else f"{asset} savings did not need rebalanced."
+        )
+        msg = f"{prepend_msg}\n\nSpot Available: {available_spot} {asset}\nSpot Total: {total_spot} {asset}\n\nSavings Available: {available_savings} {asset}\nAccruing Interest: {accruing_interest} {asset}"
+        logging.info(msg)
+        self.telegram_notifier.enqueue_message(msg)
+
     # ---------------------------------------------------------------------------- #
     #                     Reevaluate savings for single symbol                     #
     # ---------------------------------------------------------------------------- #
@@ -82,7 +95,7 @@ class SavingsEvaluation:
                 self.__rebalance_quote_assets([quote_asset])
             else:
                 quote_asset = self.binance_client.get_quote_asset_from_symbol(symbol)
-                self.__send_savings_summary_msg(quote_asset, is_rebalanced=False)
+                self.send_savings_summary_msg(quote_asset, is_rebalanced=False)
         else:
             msg = f"Evaluated current deal orders but safety order is not yet open for {symbol}"
             logging.warn(msg)
@@ -141,7 +154,7 @@ class SavingsEvaluation:
                 self.assets_dataframe.upsert(quote_symbol, next_so, quote_asset)
             current_quote_balance = self.binance_client.get_available_asset_balance(quote_asset)
             required_quote_balance = self.assets_dataframe.sum_next_orders(quote_asset)
-            self.rebalance_savings(quote_asset, quote_precision, current_quote_balance, required_quote_balance)
+            self.__rebalance_savings(quote_asset, quote_precision, current_quote_balance, required_quote_balance)
 
     def __get_quote_assets(self, active_symbols):
         return {self.binance_client.get_quote_asset_from_symbol(sym) for sym in active_symbols}
@@ -196,7 +209,7 @@ class SavingsEvaluation:
     #                           Preform rebalance savings                          #
     # ---------------------------------------------------------------------------- #
 
-    def rebalance_savings(self, quote_asset, quote_precision, current_quote_balance, required_quote_balance):
+    def __rebalance_savings(self, quote_asset, quote_precision, current_quote_balance, required_quote_balance):
         rebalance_amount = round(current_quote_balance - required_quote_balance, quote_precision)
         if rebalance_amount < 0:
             rebalance_amount = abs(rebalance_amount)
@@ -245,7 +258,6 @@ class SavingsEvaluation:
             msg = f"Moved {rounded_qty} {asset} to Spot Wallet from Flexible Savings"
             logging.info(msg)
             self.telegram_notifier.enqueue_message(msg)
-            self.__send_savings_summary_msg(asset)
         except Exception as err:
             logging.exception(
                 f"Exception occurred when attempting to rebalance savings for {asset}. Adding to failure set for retrying. Error: {err}"
@@ -290,7 +302,6 @@ class SavingsEvaluation:
             msg = f"Moved {rounded_qty} {asset} from Spot Wallet to Flexible Savings"
             logging.info(msg)
             self.telegram_notifier.enqueue_message(msg)
-            self.__send_savings_summary_msg(asset)
         except Exception as err:
             logging.exception(
                 f"Exception occurred when attempting to rebalance savings for {asset}. Adding to failure set for retrying. Error: {err}"
@@ -299,16 +310,3 @@ class SavingsEvaluation:
                 f"Error occurred when rebalancing asset {asset}. Will attempt to retry. See logs for details"
             )
             self.rebalance_failures.add(asset)
-
-    def __send_savings_summary_msg(self, asset, is_rebalanced=True):
-        precision = self.asset_precision_calculator.get_asset_precision(asset)
-        available_spot = f"%.{precision}f" % self.binance_client.get_available_asset_balance(asset)
-        total_spot = f"%.{precision}f" % self.binance_client.get_total_asset_balance(asset)
-        available_savings = f"%.{precision}f" % self.binance_client.get_available_savings_by_asset(asset)
-        accruing_interest = f"%.{precision}f" % self.binance_client.get_accruing_interest_savings_by_asset(asset)
-        prepend_msg = (
-            f"{asset} savings rebalanced." if is_rebalanced == True else f"{asset} savings did not need rebalanced."
-        )
-        msg = f"{prepend_msg}\n\nSpot Available: {available_spot} {asset}\nSpot Total: {total_spot} {asset}\n\nSavings Available: {available_savings} {asset}\nAccruing Interest: {accruing_interest} {asset}"
-        logging.info(msg)
-        self.telegram_notifier.enqueue_message(msg)
