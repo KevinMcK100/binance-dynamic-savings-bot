@@ -1,6 +1,6 @@
-apscheduler
-numpy
-pandas
-python-binance
-python-telegram-bot
-PyYAML
+apscheduler==3.6.3
+numpy==1.22.3
+pandas==1.4.1
+python-binance==1.0.15
+python-telegram-bot==13.11
+PyYAML==6.0
