@@ -1,8 +1,11 @@
-import logging, re
-from binance.client import Client
-from cachetools import cached, TTLCache
-from order import Order
+import logging
+import re
 from typing import List
+
+from binance.client import Client
+from cachetools import TTLCache, cached
+
+from order import Order
 
 
 class BinanceClient:
@@ -81,15 +84,27 @@ class BinanceClient:
     # ------------------------ Savings position endpoints ------------------------ #
 
     def get_available_savings_by_asset(self, asset) -> float:
-        return float(self.__get_savings_position_by_asset(asset)["freeAmount"])
+        asset_savings = self.__get_savings_position_by_asset(asset)
+        if asset_savings is not None:
+            return float(self.__get_savings_position_by_asset(asset)["freeAmount"])
+        return 0
 
     def get_accruing_interest_savings_by_asset(self, asset) -> float:
-        free_amt = float(self.__get_savings_position_by_asset(asset)["freeAmount"])
-        today_amt = float(self.__get_savings_position_by_asset(asset)["todayPurchasedAmount"])
+        free_amt = self.get_available_savings_by_asset(asset)
+        today_amt = self.__get_today_purchased_amount_by_asset(asset)
         return max(free_amt - today_amt, 0)
 
+    def __get_today_purchased_amount_by_asset(self, asset) -> float:
+        asset_savings = self.__get_savings_position_by_asset(asset)
+        if asset_savings is not None:
+            return float(self.__get_savings_position_by_asset(asset)["todayPurchasedAmount"])
+        return 0
+
     def __get_savings_position_by_asset(self, asset):
-        return self.client.get_lending_position(asset=asset)[0]
+        lending_position = self.client.get_lending_position(asset=asset)
+        if lending_position is not None and len(lending_position) > 0:
+            return lending_position[0]
+        return None
 
     # ------------------------- Savings product endpoints ------------------------ #
 
