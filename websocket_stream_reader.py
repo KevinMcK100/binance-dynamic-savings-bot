@@ -18,7 +18,7 @@ class WebsocketStreamReader:
         secret_key,
         balance_update_processor: BalanceUpdateProcessor,
         order_processor: OrderUpdateProcessor,
-        binance_client: BinanceClient
+        binance_client: BinanceClient,
     ):
         self.api_key = api_key
         self.secret_key = secret_key
@@ -66,9 +66,19 @@ class WebsocketStreamReader:
         return BalanceUpdate(balance_update["a"], balance_update["d"], balance_update["E"], balance_update["T"])
 
     def __map_order(self, order: dict):
-        quote_asset = self.binance_client.get_quote_asset_from_symbol(order["s"])
+        symbol = order["s"]
+        base_asset = self.binance_client.get_base_asset_from_symbol(symbol)
+        quote_asset = self.binance_client.get_quote_asset_from_symbol(symbol)
         return Order(
-            order["s"], quote_asset, float(order["p"]), float(order["q"]), order["c"], order["X"], order["S"], int(order["O"])
+            symbol,
+            base_asset,
+            quote_asset,
+            float(order["p"]),
+            float(order["q"]),
+            order["c"],
+            order["X"],
+            order["S"],
+            int(order["O"]),
         )
 
     def __do_health_check(self):
