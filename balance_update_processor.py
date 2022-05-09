@@ -1,9 +1,8 @@
 import logging
-from asset_precision_calculator import AssetPrecisionCalculator
+
 from balance_update import BalanceUpdate
 from binance_client import BinanceClient
 from savings_evaluation import SavingsEvaluation
-from telegram_notifier import TelegramNotifier
 
 
 class BalanceUpdateProcessor:

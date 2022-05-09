@@ -1,8 +1,11 @@
-import logging, pytz
+import logging
+
+import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
+from binance import ThreadedWebsocketManager
+
 from balance_update import BalanceUpdate
 from balance_update_processor import BalanceUpdateProcessor
-from binance import ThreadedWebsocketManager
 from order import Order
 from order_update_processor import OrderUpdateProcessor
 
@@ -39,14 +42,22 @@ class WebsocketStreamReader:
             self.__handle_order_update_event(event)
 
     def __handle_balance_update_event(self, balance_event):
-        balance_update = self.__map_balance_update(balance_event)
-        logging.info(f"Balance update event received: {balance_update}")
-        self.balance_update_processor.process_balance_update(balance_update)
+        try:
+            balance_update = self.__map_balance_update(balance_event)
+            logging.info(f"Balance update event received: {balance_update}")
+            self.balance_update_processor.process_balance_update(balance_update)
+        except Exception as ex:
+            msg = f"Error occurred when attempting to process balance update event. Exception: {ex}"
+            logging.exception(msg)
 
     def __handle_order_update_event(self, order_event):
-        order = self.__map_order(order_event)
-        logging.info(f"Order event received: {order}")
-        self.order_processor.process_order(order)
+        try:
+            order = self.__map_order(order_event)
+            logging.info(f"Order event received: {order}")
+            self.order_processor.process_order(order)
+        except Exception as ex:
+            msg = f"Error occurred when attempting to process order update event. Exception: {ex}"
+            logging.exception(msg)
 
     def __map_balance_update(self, balance_update: dict):
         return BalanceUpdate(balance_update["a"], balance_update["d"], balance_update["E"], balance_update["T"])
