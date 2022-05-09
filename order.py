@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 @dataclass
 class Order:
     symbol: str
+    base_asset: str
+    quote_asset: str
     price: float
     quantity: float
     order_id: str

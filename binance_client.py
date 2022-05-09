@@ -53,8 +53,13 @@ class BinanceClient:
         return [self.__map_order(ord) for ord in self.client.get_all_orders(symbol=symbol)]
 
     def __map_order(self, order) -> Order:
+        symbol = order["symbol"]
+        base_asset = self.get_base_asset_from_symbol(symbol)
+        quote_asset = self.get_quote_asset_from_symbol(symbol)
         return Order(
-            order["symbol"],
+            symbol,
+            base_asset,
+            quote_asset,
             float(order["price"]),
             float(order["origQty"]),
             order["clientOrderId"],

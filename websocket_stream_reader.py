@@ -6,6 +6,7 @@ from binance import ThreadedWebsocketManager
 
 from balance_update import BalanceUpdate
 from balance_update_processor import BalanceUpdateProcessor
+from binance_client import BinanceClient
 from order import Order
 from order_update_processor import OrderUpdateProcessor
 
@@ -17,11 +18,13 @@ class WebsocketStreamReader:
         secret_key,
         balance_update_processor: BalanceUpdateProcessor,
         order_processor: OrderUpdateProcessor,
+        binance_client: BinanceClient
     ):
         self.api_key = api_key
         self.secret_key = secret_key
         self.balance_update_processor = balance_update_processor
         self.order_processor = order_processor
+        self.binance_client = binance_client
 
     def start_order_stream(self):
         logging.info("Starting order stream reader")
@@ -63,8 +66,9 @@ class WebsocketStreamReader:
         return BalanceUpdate(balance_update["a"], balance_update["d"], balance_update["E"], balance_update["T"])
 
     def __map_order(self, order: dict):
+        quote_asset = self.binance_client.get_quote_asset_from_symbol(order["s"])
         return Order(
-            order["s"], float(order["p"]), float(order["q"]), order["c"], order["X"], order["S"], int(order["O"])
+            order["s"], quote_asset, float(order["p"]), float(order["q"]), order["c"], order["X"], order["S"], int(order["O"])
         )
 
     def __do_health_check(self):

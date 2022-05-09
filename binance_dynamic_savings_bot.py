@@ -7,18 +7,22 @@ Usage:
 Start bot using /start. This triggers a reevaluation of current savings and starts the Telegram bot and order websocket listener.
 """
 
-import logging, os, yaml
+import logging
+import os
+
+import yaml
+
 from asset_precision_calculator import AssetPrecisionCalculator
 from assets_dataframe import AssetsDataframe
 from balance_update_processor import BalanceUpdateProcessor
 from binance_client import BinanceClient
 from failure_handler import FailureHandler
 from order_update_processor import OrderUpdateProcessor
-from websocket_stream_reader import WebsocketStreamReader
 from rebalance_savings_scheduler import RebalanceSavingsScheduler
 from savings_evaluation import SavingsEvaluation
 from telegram_handler import TelegramHandler
 from telegram_notifier import TelegramNotifier
+from websocket_stream_reader import WebsocketStreamReader
 
 # Enable logging
 logging.basicConfig(
@@ -78,7 +82,11 @@ def main():
         dca_bot_config["order_id_regex"], binance_client, savings_evaluation, telegram_notifier
     )
     websocket_stream_reader = WebsocketStreamReader(
-        binance_config["api_key"], binance_config["secret_key"], balance_update_processor, order_processor
+        binance_config["api_key"],
+        binance_config["secret_key"],
+        balance_update_processor,
+        order_processor,
+        binance_client,
     )
     websocket_stream_reader.start_order_stream()
 

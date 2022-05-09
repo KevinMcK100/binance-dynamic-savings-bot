@@ -1,4 +1,6 @@
-import logging, re
+import logging
+import re
+
 from binance_client import BinanceClient
 from order import Order
 from savings_evaluation import SavingsEvaluation
@@ -48,7 +50,9 @@ class OrderUpdateProcessor:
     #                             Messaging and logging                            #
     # ---------------------------------------------------------------------------- #
     def __log_order_event(self, prepend, ord: Order, verbose: bool = False):
-        log = f"{prepend}\tSymbol: {ord.symbol} \n\tSide: {ord.side} \n\tQuantity: {ord.quantity} \n\tPrice: {ord.price} \n\tStatus: {ord.status}\n\tOrder ID: {ord.order_id}"
+        price = str(ord.price) + " " + ord.quote_asset
+        total = str(ord.quote_qty) + " " + ord.quote_asset
+        log = f"{prepend}\tSymbol: {ord.symbol} \n\tSide: {ord.side} \n\tQuantity: {ord.quantity} \n\tPrice: {price} \n\tTotal: {total} \n\tStatus: {ord.status}\n\tOrder ID: {ord.order_id}"
         logging.info(log)
-        msg = f"{prepend}Symbol: {ord.symbol} \nSide: {ord.side} \nQuantity: {ord.quantity} \nPrice: {ord.price} \nStatus: {ord.status}\nOrder ID: {ord.order_id}"
+        msg = f"{prepend}Symbol: {ord.symbol} \nSide: {ord.side} \nQuantity: {ord.quantity} \nPrice: {price} \nTotal: {total} \nStatus: {ord.status}\nOrder ID: {ord.order_id}"
         self.telegram_notifier.enqueue_message(msg, verbose)
