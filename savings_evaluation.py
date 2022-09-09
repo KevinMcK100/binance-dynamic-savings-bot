@@ -31,6 +31,7 @@ class SavingsEvaluation:
         quote_coverage: float,
         assets_dataframe: AssetsDataframe,
         asset_precision_calculator: AssetPrecisionCalculator,
+        excluded_symbols: List[str],
         dry_run: bool = False,
     ):
         self.order_id_regex = order_id_regex
@@ -40,6 +41,7 @@ class SavingsEvaluation:
         self.quote_coverage = quote_coverage
         self.assets_dataframe = assets_dataframe
         self.asset_precision_calculator = asset_precision_calculator
+        self.excluded_symbols = excluded_symbols
         self.dry_run = dry_run
         self.rebalance_failures = set()
         self.rebalance_mutex = threading.Semaphore(1)
@@ -144,11 +146,13 @@ class SavingsEvaluation:
 
     def __rebalance_quote_assets(self, quote_asset=None):
         active_symbols = self.binance_client.get_symbols_by_client_order_id(self.order_id_regex)
-        quote_assets = self.__get_quote_assets(active_symbols) if quote_asset is None else set(quote_asset)
+        # When all safety orders are filled we do not want to count next orders in calculations, so we filter them out
+        filtered_active_symbols = filter(lambda sym: sym not in self.excluded_symbols)
+        quote_assets = self.__get_quote_assets(filtered_active_symbols) if quote_asset is None else set(quote_asset)
         self.telegram_notifier.enqueue_message("Reevaluating quote assets: {0}".format(", ".join(quote_assets)))
         for quote_asset in quote_assets:
             self.assets_dataframe.drop_by_quote_asset(quote_asset)
-            quote_symbols = self.__filter_symbols_by_quote_asset(active_symbols, quote_asset)
+            quote_symbols = self.__filter_symbols_by_quote_asset(filtered_active_symbols, quote_asset)
             quote_precision = int(self.binance_client.get_quote_precision(quote_symbols[0]))
             for quote_symbol in quote_symbols:
                 deal_orders = self.__get_current_deal_orders_by_symbol(quote_symbol)

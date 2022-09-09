@@ -59,6 +59,7 @@ def main():
         dca_bot_config["quote_coverage"],
         assets_dataframe,
         asset_precision_calculator,
+        dca_bot_config["excluded_symbols"],
         dca_bot_config["dry_run"],
     )
 

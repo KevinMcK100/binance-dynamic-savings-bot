@@ -13,3 +13,4 @@ dca_bot:
     hour: 23
     minute: 40
   dry_run: false # Dry-run mode does the exact same as live mode, except it will stop short of actually rebalancing funds between spot and savings
+  excluded_symbols: [AVAXUSDT, SOLUSDT] # When all safety orders have been filled on an asset, we want to avoid calculating future orders when calculating amount to move to savings (because the calculated upcoming orders will never happen in these cases). This allows us to continue savings for "active" pairs. You need to manually add and remove from this list as symbols move to max safety order and active, but this task will be very infrequent.
