@@ -147,7 +147,7 @@ class SavingsEvaluation:
     def __rebalance_quote_assets(self, quote_asset=None):
         active_symbols = self.binance_client.get_symbols_by_client_order_id(self.order_id_regex)
         # When all safety orders are filled we do not want to count next orders in calculations, so we filter them out
-        filtered_active_symbols = filter(lambda sym: sym not in self.excluded_symbols)
+        filtered_active_symbols = [x for x in active_symbols if all(y not in x for y in self.excluded_symbols)]
         quote_assets = self.__get_quote_assets(filtered_active_symbols) if quote_asset is None else set(quote_asset)
         self.telegram_notifier.enqueue_message("Reevaluating quote assets: {0}".format(", ".join(quote_assets)))
         for quote_asset in quote_assets:
