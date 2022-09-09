@@ -1,10 +1,12 @@
-import logging, threading
+import logging
+import threading
+from typing import List
+
 from asset_precision_calculator import AssetPrecisionCalculator
 from assets_dataframe import AssetsDataframe
 from binance_client import BinanceClient
 from order import Order
 from telegram_notifier import TelegramNotifier
-from typing import List
 
 
 class SavingsEvaluation:
@@ -248,7 +250,7 @@ class SavingsEvaluation:
 
         # Execute redemption from Flexible Savings
         try:
-            if self.dry_run == False:
+            if self.dry_run == False and quantity > 0:
                 self.binance_client.redeem_from_savings(asset, quantity)
             else:
                 msg = f"Running in dry-run mode. Will not move any funds"
